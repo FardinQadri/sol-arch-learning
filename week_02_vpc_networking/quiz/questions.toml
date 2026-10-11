@@ -1,0 +1,515 @@
+[[question]]
+id = "w02-q01"
+domain = 3
+task = "3.4"
+services = ["Amazon VPC"]
+kind = "single"
+stem = """A logistics company is building a subnet for a fleet-tracking service that will run up to 120 network interfaces at peak, including EC2 instances and Lambda-attached interfaces. The subnet should be the smallest IPv4 block that can hold them all, so the rest of the VPC range stays free for other subnets. Which subnet size should the architect choose?"""
+options = [
+  "A /24 subnet, which has 256 addresses.",
+  "A /25 subnet, which has 128 addresses.",
+  "A /26 subnet, which has 64 addresses.",
+  "A /27 subnet, which has 32 addresses.",
+]
+answer = ["B"]
+explain = { A = "It fits, but it is larger than needed. The requirement is the smallest block that holds 120 interfaces.", B = "Correct. AWS reserves 5 addresses in every subnet, so a /25 leaves 123 usable addresses, enough for 120.", C = "A /26 has 64 addresses and only 59 usable after the 5 reserved ones, which is far short of 120.", D = "A /27 has 32 addresses and only 27 usable, so it cannot hold the fleet." }
+ref = "week_02_vpc_networking/concepts/01_vpc_subnets_and_cidr.md"
+
+[[question]]
+id = "w02-q02"
+domain = 3
+task = "3.4"
+services = ["Amazon VPC", "VPC Peering"]
+kind = "single"
+stem = """A retailer is creating a new VPC for its payments platform. The production VPC uses 10.0.0.0/16 and a data VPC in another account uses 10.1.0.0/16. The head office network, which will connect later over a VPN, uses 192.168.0.0/16. The payments VPC must be able to peer with both VPCs and reach the head office without renumbering anything. Which CIDR block should the architect choose for the new VPC?"""
+options = [
+  "10.1.0.0/20",
+  "10.0.128.0/17",
+  "172.16.0.0/16",
+  "192.168.64.0/18",
+]
+answer = ["C"]
+explain = { A = "It sits inside the data VPC's 10.1.0.0/16, so a peering request would be rejected for overlapping CIDRs.", B = "It sits inside the production VPC's 10.0.0.0/16, so it overlaps and cannot be peered.", C = "Correct. 172.16.0.0/16 is a private range that overlaps none of the three existing networks, so peering and the later VPN both work.", D = "It sits inside the head office's 192.168.0.0/16, so routing to the office would be ambiguous." }
+ref = "week_02_vpc_networking/concepts/01_vpc_subnets_and_cidr.md"
+
+[[question]]
+id = "w02-q03"
+domain = 3
+task = "3.4"
+services = ["Amazon VPC"]
+kind = "single"
+stem = """A media company's VPC has a primary IPv4 CIDR of 10.0.0.0/24, and every address in its subnets is allocated. The team must add more subnets for a new service in the same VPC, without migrating the existing workloads or changing their IP addresses. The company has not used the 10.1.0.0/16 range anywhere. What should the architect do?"""
+options = [
+  "Associate 10.1.0.0/16 as a secondary CIDR block and create the new subnets in it.",
+  "Modify the primary CIDR block of the VPC from /24 to /16 in place.",
+  "Disassociate the primary CIDR block and associate a larger block in its place.",
+  "Create a second VPC with a /16 CIDR block and move the existing workloads into it.",
+]
+answer = ["A"]
+explain = { A = "Correct. A VPC can have additional IPv4 CIDR blocks that do not overlap the existing ones, and subnets can be created from them.", B = "An existing CIDR block cannot be resized. Only additional blocks can be associated.", C = "The primary CIDR block cannot be disassociated from a VPC.", D = "It would work, but it forces the migration and re-addressing the team wants to avoid." }
+ref = "week_02_vpc_networking/concepts/01_vpc_subnets_and_cidr.md"
+
+[[question]]
+id = "w02-q04"
+domain = 3
+task = "3.4"
+services = ["Amazon VPC", "Internet Gateway"]
+kind = "single"
+stem = """A startup launches web servers into a new subnet. An internet gateway is attached to the VPC, the instances receive public IPv4 addresses, the security group allows all outbound traffic and the subnet uses the default network ACL. The servers still cannot reach the internet. The subnet's route table contains only the local route. What should the architect change?"""
+options = [
+  "Associate an Elastic IP address with the internet gateway and the subnet's route table.",
+  "Add a 0.0.0.0/0 route that targets a NAT gateway placed in the same subnet.",
+  "Add an outbound allow-all rule to the subnet's network ACL.",
+  "Add a 0.0.0.0/0 route that targets the internet gateway to the subnet's route table.",
+]
+answer = ["D"]
+explain = { A = "Elastic IP addresses attach to network interfaces or NAT gateways, not to an internet gateway.", B = "A NAT gateway itself needs a route to the internet gateway in its subnet, so this does not make the subnet public.", C = "The default network ACL already allows all traffic in both directions. It is not the blocker.", D = "Correct. A subnet is public when its route table has a route to an internet gateway. Without it, public IPs are useless." }
+ref = "week_02_vpc_networking/concepts/02_routing_internet_and_nat.md"
+
+[[question]]
+id = "w02-q05"
+domain = 2
+task = "2.2"
+services = ["Amazon VPC", "NAT Gateway"]
+kind = "single"
+stem = """A company runs application servers in private subnets across three Availability Zones. A single NAT gateway sits in the public subnet of one AZ, and all three private route tables point to it. During an AZ outage, servers in the two healthy AZs lost all outbound internet access. The architect must remove this single point of failure. What should the architect do?"""
+options = [
+  "Add a second NAT gateway to the same public subnet and add its route alongside the first.",
+  "Create a NAT gateway per AZ and route each AZ's private subnets to its own gateway.",
+  "Replace the NAT gateway with a NAT instance in the same public subnet.",
+  "Associate additional Elastic IP addresses with the existing NAT gateway.",
+]
+answer = ["B"]
+explain = { A = "Both gateways would still live in the failed AZ, and a route table sends traffic to one target per destination.", B = "Correct. A NAT gateway is redundant only within its own AZ, so each AZ needs its own gateway and a local route.", C = "A NAT instance in the same AZ has the same failure domain, and it adds management work.", D = "Extra addresses add port capacity, not availability. The gateway is still in one AZ." }
+ref = "week_02_vpc_networking/concepts/02_routing_internet_and_nat.md"
+
+[[question]]
+id = "w02-q06"
+domain = 2
+task = "2.2"
+services = ["Elastic Load Balancing", "Amazon EC2", "Amazon VPC"]
+kind = "single"
+stem = """A ticketing company hosts a public website on EC2 instances that must not have public IP addresses. The site must stay available if one Availability Zone fails, and users reach it from the internet over HTTPS. Which network design meets these requirements?"""
+options = [
+  "An internet-facing ALB in public subnets in two AZs, with the instances in private subnets of both.",
+  "An internet-facing Application Load Balancer in one public subnet, with the instances in private subnets in two AZs.",
+  "An internal Application Load Balancer in two private subnets, with an internet gateway route added to those subnets.",
+  "Instances in public subnets in two AZs with Elastic IP addresses and a security group that allows HTTPS from anywhere.",
+]
+answer = ["A"]
+explain = { A = "Correct. The load balancer takes internet traffic in public subnets, and the private instances keep no public addresses in either AZ.", B = "A load balancer needs subnets in at least two AZs, and one public subnet leaves it with no AZ redundancy.", C = "An internal load balancer has private addresses only, so internet users cannot reach it.", D = "Elastic IP addresses are public addresses, which the requirement forbids." }
+ref = "week_02_vpc_networking/concepts/02_routing_internet_and_nat.md"
+
+[[question]]
+id = "w02-q07"
+domain = 2
+task = "2.2"
+services = ["NAT Gateway", "Amazon EC2", "Amazon VPC"]
+kind = "single"
+stem = """A small team runs a fleet of EC2 instances in a private subnet. The instances need outbound access to the internet to download OS patches, and nothing on the internet may start a connection to them. The team has no network engineer and wants the LEAST operational overhead for the egress path. What should the architect deploy?"""
+options = [
+  "An EC2 NAT instance with source/destination check disabled, kept alive by an Auto Scaling group.",
+  "An internet gateway for the private subnet, with a public IPv4 address on each instance.",
+  "A public NAT gateway in a public subnet, with a 0.0.0.0/0 route from the private subnet to it.",
+  "A fleet of proxy servers in the public subnet, managed by the team with its own failover scripts.",
+]
+answer = ["C"]
+explain = { A = "It works, but the team patches, sizes and recovers the instance itself, which is the overhead to avoid.", B = "Public addresses on instances make them reachable from the internet, which the requirement rules out.", C = "Correct. A NAT gateway is managed and scales on its own, and it allows outbound connections only.", D = "It works, but a self-managed proxy fleet carries more operational overhead than a managed gateway." }
+ref = "week_02_vpc_networking/concepts/02_routing_internet_and_nat.md"
+
+[[question]]
+id = "w02-q08"
+domain = 2
+task = "2.2"
+services = ["Egress-only Internet Gateway", "Amazon VPC"]
+kind = "single"
+stem = """An analytics company has dual-stack instances in a private subnet that call external IPv6 APIs. The instances must be able to start outbound IPv6 connections, and no host on the internet may be able to start a connection to them. Which change meets this requirement?"""
+options = [
+  "Add a ::/0 route that targets the VPC's internet gateway.",
+  "Add a ::/0 route that targets a gateway VPC endpoint.",
+  "Add a ::/0 route that targets a virtual private gateway.",
+  "Add a ::/0 route to a new egress-only internet gateway.",
+]
+answer = ["D"]
+explain = { A = "An internet gateway also accepts inbound connections from the internet, so the instances would be reachable.", B = "Gateway endpoints exist only for S3 and DynamoDB. They do not carry general IPv6 internet traffic.", C = "A virtual private gateway leads to a VPN or Direct Connect network, not the internet.", D = "Correct. An egress-only internet gateway is stateful and allows outbound IPv6 only, blocking connections started from outside." }
+ref = "week_02_vpc_networking/concepts/02_routing_internet_and_nat.md"
+
+[[question]]
+id = "w02-q09"
+domain = 2
+task = "2.2"
+services = ["AWS Systems Manager", "Amazon VPC", "IAM"]
+kind = "multi"
+choose = 2
+stem = """A bank's administrators need interactive shell access to EC2 instances in private subnets. The instances have no public IP addresses and no inbound security group rules, and the VPC has no NAT gateway or internet gateway. The bank wants to avoid running a bastion host. Which combination of steps allows the access? (Select TWO.)"""
+options = [
+  "Launch a bastion host in a public subnet and allow SSH to it from the corporate range.",
+  "Attach an instance profile with the AmazonSSMManagedInstanceCore policy to the instances.",
+  "Add an internet gateway route and public IPv4 addresses to the private subnets.",
+  "Create interface VPC endpoints for the Systems Manager services in the private subnets.",
+  "Open port 22 to the VPC CIDR and distribute an EC2 key pair to each administrator.",
+]
+answer = ["B", "D"]
+explain = { A = "A bastion is the host the bank wants to avoid, and it needs an inbound SSH rule.", B = "Correct. The agent on the instance needs a role that lets it register with Session Manager.", C = "Public addresses and an internet gateway expose the instances, against the stated design.", D = "Correct. With no NAT or internet path, interface endpoints give the agent a private route to the Systems Manager service.", E = "This needs an inbound rule and shared keys. Session Manager needs neither." }
+ref = "week_02_vpc_networking/concepts/02_routing_internet_and_nat.md"
+
+[[question]]
+id = "w02-q10"
+domain = 1
+task = "1.2"
+services = ["Security Groups", "Amazon RDS", "Auto Scaling"]
+kind = "single"
+stem = """A web tier runs in an Auto Scaling group whose instances come and go, and its subnets also hold unrelated batch servers. A MySQL database in another subnet must accept connections on port 3306 only from the web tier. Which rule on the database's security group meets this requirement?"""
+options = [
+  "An inbound rule for TCP 3306 whose source is the web tier's security group.",
+  "An inbound rule for TCP 3306 for the private IP address of each current web instance.",
+  "An inbound rule for TCP 3306 whose source is the CIDR of the subnets that hold the web tier.",
+  "An inbound rule for TCP 3306 from 0.0.0.0/0, relying on the database password.",
+]
+answer = ["A"]
+explain = { A = "Correct. Referencing the web security group follows instances as they scale and admits nothing else.", B = "Instance addresses change as the group scales, so the rule goes stale and needs constant edits.", C = "The batch servers share those subnets, so they would gain access as well.", D = "It exposes the database port to every address, replacing network control with a password." }
+ref = "week_02_vpc_networking/concepts/03_security_groups_and_nacls.md"
+
+[[question]]
+id = "w02-q11"
+domain = 1
+task = "1.2"
+services = ["Network ACLs", "Amazon VPC"]
+kind = "single"
+stem = """A public web subnet uses the default network ACL, which has rule 100 allowing all inbound traffic. Logs show that the range 198.51.100.0/24 is flooding the site with requests, and the team must block that range for the whole subnet while leaving everyone else unaffected. What should the architect do?"""
+options = [
+  "Add an inbound DENY rule for 198.51.100.0/24 to the network ACL with rule number 150.",
+  "Add an inbound DENY rule for 198.51.100.0/24 to the network ACL with rule number 50.",
+  "Add a deny rule for 198.51.100.0/24 to the security group of every instance in the subnet.",
+  "Add an outbound DENY rule for 198.51.100.0/24 to the network ACL with rule number 50.",
+]
+answer = ["B"]
+explain = { A = "Rules run in ascending order and the first match wins. Rule 100 allows the traffic first, so a deny at 150 is never reached.", B = "Correct. Rule 50 is evaluated before rule 100, so the range is denied and all other traffic still matches the allow.", C = "Security groups have allow rules only. They cannot contain a deny.", D = "An outbound rule affects traffic leaving the subnet, not requests arriving from that range." }
+ref = "week_02_vpc_networking/concepts/03_security_groups_and_nacls.md"
+
+[[question]]
+id = "w02-q12"
+domain = 1
+task = "1.2"
+services = ["Network ACLs", "Amazon EC2"]
+kind = "single"
+stem = """A team gives a public web subnet a custom network ACL. Its only rules are an inbound allow for TCP 443 from 0.0.0.0/0 and an outbound allow for TCP 443 to 0.0.0.0/0. The security group allows inbound HTTPS. Browsers now time out when they connect to the servers. What should the architect add?"""
+options = [
+  "An inbound allow rule for TCP 1024-65535 from 0.0.0.0/0.",
+  "An outbound allow rule for UDP 53 to 0.0.0.0/0.",
+  "An outbound allow rule for TCP 1024-65535 to 0.0.0.0/0.",
+  "An outbound rule for TCP 1024-65535 in the instance's security group.",
+]
+answer = ["C"]
+explain = { A = "The requests already arrive on port 443. The blocked traffic is the reply leaving the subnet.", B = "The servers are answering clients, not resolving names. DNS is not the problem.", C = "Correct. Network ACLs are stateless, and replies go to the client's ephemeral port, so the outbound direction must allow that range.", D = "Security groups are stateful and already let replies out. The block is at the network ACL." }
+ref = "week_02_vpc_networking/concepts/03_security_groups_and_nacls.md"
+
+[[question]]
+id = "w02-q13"
+domain = 1
+task = "1.2"
+services = ["Security Groups", "Amazon EC2"]
+kind = "single"
+stem = """A developer creates a new security group for a stand-alone web server and adds no rules to it. The server must accept HTTPS from anywhere on the internet and must be able to download updates over HTTPS. The developer wants to add the fewest rules possible. What should the developer do?"""
+options = [
+  "Add an inbound rule for TCP 443 and outbound rules for TCP 80 and 443.",
+  "Add an inbound rule for TCP 443 and an outbound allow-all rule.",
+  "Attach the VPC's default security group instead of the new one.",
+  "Add only an inbound rule for TCP 443 from 0.0.0.0/0.",
+]
+answer = ["D"]
+explain = { A = "It works, but a new security group already allows all outbound traffic, so the outbound rules are redundant.", B = "It works, but the allow-all outbound rule is already present on a new security group.", C = "The default security group allows inbound traffic only from itself, so the internet could not reach the server.", D = "Correct. A new security group denies all inbound traffic and allows all outbound, so one inbound rule completes it." }
+ref = "week_02_vpc_networking/concepts/03_security_groups_and_nacls.md"
+
+[[question]]
+id = "w02-q14"
+domain = 1
+task = "1.2"
+services = ["Network ACLs", "NAT Gateway"]
+kind = "single"
+stem = """Batch servers in a private subnet call external HTTPS APIs through a NAT gateway. The subnet's custom network ACL allows outbound TCP 443 to 0.0.0.0/0 and inbound TCP 22 from 10.0.0.0/8 only. The security group allows all outbound traffic. The API calls time out, and the requests do leave the subnet. What should the architect change?"""
+options = [
+  "Add an inbound allow for TCP 1024-65535 from 0.0.0.0/0 to the network ACL.",
+  "Add an inbound rule for TCP 1024-65535 to the security group of the batch instances.",
+  "Add an inbound allow rule for TCP 443 from 0.0.0.0/0 to the network ACL.",
+  "Add an outbound allow rule for TCP 1024-65535 to the network ACL.",
+]
+answer = ["A"]
+explain = { A = "Correct. The network ACL is stateless, so the API replies arriving on ephemeral ports need an explicit inbound allow.", B = "The security group is stateful and already admits replies to connections the instance started.", C = "Replies arrive at the client's ephemeral port, not at port 443, so this rule matches nothing useful.", D = "The requests already leave the subnet. The blocked direction is the inbound reply." }
+ref = "week_02_vpc_networking/concepts/03_security_groups_and_nacls.md"
+
+[[question]]
+id = "w02-q15"
+domain = 1
+task = "1.2"
+services = ["VPC Flow Logs", "Amazon S3", "Amazon Athena"]
+kind = "single"
+stem = """After a network ACL change, several tiers of an application cannot reach each other, and the team does not know which source and destination pairs are being refused. They want a record of the refused connections across the whole VPC, with the least effort and without touching the instances. What should the architect do?"""
+options = [
+  "Turn on AWS CloudTrail data events and search them for denied network calls.",
+  "Create a VPC flow log for REJECT traffic to S3 and query it with Athena.",
+  "Configure Traffic Mirroring for every instance and inspect the packets in an appliance.",
+  "Enable detailed monitoring on all instances and read the network metrics in CloudWatch.",
+]
+answer = ["B"]
+explain = { A = "CloudTrail records API calls, not network connections between instances.", B = "Correct. A flow log at VPC level records source, destination and port for each flow, and a REJECT filter keeps only the refused ones.", C = "It works, but it needs mirrored sessions on every interface and a packet appliance, which is far more effort.", D = "Instance metrics count bytes and packets. They do not show which connections were refused." }
+ref = "week_02_vpc_networking/concepts/03_security_groups_and_nacls.md"
+
+[[question]]
+id = "w02-q16"
+domain = 1
+task = "1.2"
+services = ["Amazon S3", "Gateway VPC Endpoint", "Amazon VPC"]
+kind = "single"
+stem = """A research institute stores datasets in an S3 bucket. Compliance requires that the bucket is read only from EC2 instances in one VPC, over the AWS network, without a NAT gateway or any internet path. Credentials alone must not be enough to read the data from elsewhere. Which solution meets the requirement?"""
+options = [
+  "Create a gateway VPC endpoint for S3 and leave the bucket policy unchanged.",
+  "Add a bucket policy that denies requests unless aws:SourceVpce matches the endpoint, without creating an endpoint.",
+  "Create a gateway endpoint for S3, route to it, and deny requests unless aws:SourceVpce matches it.",
+  "Add a bucket policy that denies requests unless aws:SourceIp is within the VPC's CIDR block.",
+]
+answer = ["C"]
+explain = { A = "The private path exists, but the bucket still accepts anyone with valid credentials from anywhere.", B = "No endpoint exists, so no request can ever match the condition, and the instances would lose access.", C = "Correct. The endpoint gives the private path, and the bucket policy limits access to requests that arrive through it.", D = "Requests through an endpoint carry no usable public source IP, and the VPC's private range would never match." }
+ref = "week_02_vpc_networking/concepts/04_vpc_endpoints_and_privatelink.md"
+
+[[question]]
+id = "w02-q17"
+domain = 1
+task = "1.2"
+services = ["Amazon S3", "Gateway VPC Endpoint", "IAM"]
+kind = "single"
+stem = """A bucket policy denies all requests unless aws:SourceIp equals the Elastic IP of the VPC's NAT gateway. The team adds an S3 gateway endpoint to cut NAT costs, and the instances' requests are now denied. The VPC has two S3 endpoints, one per team, and the bucket must be readable from anything inside this VPC. Which condition should the bucket policy use?"""
+options = [
+  "aws:SourceVpce, listing only the first team's endpoint ID.",
+  "aws:SourceIp, with the NAT gateway's Elastic IP address still listed.",
+  "aws:SourceIp, with the VPC's private CIDR block.",
+  "aws:SourceVpc, with the ID of the VPC.",
+]
+answer = ["D"]
+explain = { A = "It would leave out the second team's endpoint, and their requests would still be denied.", B = "Requests through an endpoint no longer leave through the NAT gateway, so that address never appears.", C = "aws:SourceIp does not apply to requests through a VPC endpoint, so a private CIDR never matches.", D = "Correct. aws:SourceVpc matches any request arriving through an endpoint in that VPC, however many endpoints it has." }
+ref = "week_02_vpc_networking/concepts/04_vpc_endpoints_and_privatelink.md"
+
+[[question]]
+id = "w02-q18"
+domain = 1
+task = "1.2"
+services = ["AWS Secrets Manager", "Interface VPC Endpoint", "AWS Lambda"]
+kind = "single"
+stem = """Lambda functions attached to private subnets must read secrets from AWS Secrets Manager. The VPC has no NAT gateway and policy forbids adding an internet path. The functions already call the public Secrets Manager endpoint name, and the team does not want to change that code. What should the architect do?"""
+options = [
+  "Create an interface endpoint for Secrets Manager with private DNS on and an HTTPS security group rule.",
+  "Create a gateway VPC endpoint for Secrets Manager and add it to the route tables.",
+  "Create an interface VPC endpoint for Secrets Manager with private DNS disabled and leave the code unchanged.",
+  "Add an internet gateway to the VPC and give the functions public IP addresses.",
+]
+answer = ["A"]
+explain = { A = "Correct. Secrets Manager has no gateway endpoint, and private DNS makes the public name resolve to the endpoint's private addresses.", B = "Gateway endpoints exist only for S3 and DynamoDB, so there is no such option for Secrets Manager.", C = "With private DNS off, the public name still resolves to a public address, so the code would need the endpoint-specific name.", D = "It violates the rule against an internet path, and Lambda interfaces do not receive public addresses anyway." }
+ref = "week_02_vpc_networking/concepts/04_vpc_endpoints_and_privatelink.md"
+
+[[question]]
+id = "w02-q19"
+domain = 1
+task = "1.2"
+services = ["Gateway VPC Endpoint", "Amazon S3", "IAM"]
+kind = "single"
+stem = """A company's workloads in one VPC reach S3 through a gateway endpoint. The security team wants the endpoint to allow reads only from the bucket reports-prod, no matter what IAM permissions the workloads' roles grant. Other buckets in the account must stay unreachable from this VPC. Where should the architect apply the restriction?"""
+options = [
+  "In the bucket policies of every other bucket in the account, denying this VPC's endpoint.",
+  "In the gateway endpoint's policy, allowing s3:GetObject on the reports-prod bucket only.",
+  "In a security group attached to the gateway endpoint.",
+  "In the network ACL of each subnet, using the S3 public IP ranges.",
+]
+answer = ["B"]
+explain = { A = "It covers only the buckets the team remembers to edit, and it cannot affect buckets in other accounts.", B = "Correct. An endpoint policy limits what can be done through the endpoint, regardless of the roles' own permissions.", C = "Gateway endpoints are route table targets and have no security groups.", D = "S3's address ranges are large and change, and the rules could not distinguish one bucket from another." }
+ref = "week_02_vpc_networking/concepts/04_vpc_endpoints_and_privatelink.md"
+
+[[question]]
+id = "w02-q20"
+domain = 1
+task = "1.2"
+services = ["AWS PrivateLink", "Network Load Balancer", "Amazon VPC"]
+kind = "multi"
+choose = 2
+stem = """A software vendor runs an API in its own account's VPC and wants a customer's account to call it privately. The two VPCs use overlapping CIDR blocks, and the vendor must not expose any other resources in its VPC. Which combination of steps meets these requirements? (Select TWO.)"""
+options = [
+  "Create a VPC peering connection between the two VPCs and add routes on both sides.",
+  "Put the API behind a Network Load Balancer and create a VPC endpoint service for it that allows the customer's account.",
+  "In the customer's VPC, create an interface endpoint that connects to the vendor's endpoint service.",
+  "Attach an internet gateway to the vendor VPC and publish the API on a public load balancer.",
+  "Share the vendor's subnets with the customer's account through AWS Resource Access Manager.",
+]
+answer = ["B", "C"]
+explain = { A = "Peering fails because the CIDR blocks overlap, and it would open the whole network between the VPCs.", B = "Correct. An endpoint service fronted by a Network Load Balancer exposes only that API to approved consumers.", C = "Correct. The consumer's interface endpoint is the private entry point that connects to the endpoint service.", D = "It sends traffic over the internet and publishes the API to everyone, which is not private.", E = "Sharing subnets places the customer's resources inside the vendor's VPC, exposing far more than the API." }
+ref = "week_02_vpc_networking/concepts/04_vpc_endpoints_and_privatelink.md"
+
+[[question]]
+id = "w02-q21"
+domain = 3
+task = "3.4"
+services = ["VPC Peering", "Amazon VPC"]
+kind = "single"
+stem = """VPC A is peered with VPC B and with VPC C. The three VPCs use different, non-overlapping CIDR blocks. The team in VPC B now needs to reach servers in VPC C, and routes in B's table point at VPC A's peering connection for C's range, but traffic fails. The team wants the simplest fix. What should the architect do?"""
+options = [
+  "Enable transitive routing on the peering connection between A and B.",
+  "Move the servers from VPC C into VPC A.",
+  "Create a peering connection between B and C and add routes to it in both route tables.",
+  "Add security group rules in VPC A that allow traffic between B and C.",
+]
+answer = ["C"]
+explain = { A = "No such setting exists. Peering never forwards traffic from one peer to another.", B = "It would work, but it is a migration, not the simplest fix.", C = "Correct. Peering is not transitive, so B and C need a direct connection and routes for each other's ranges.", D = "Security groups do not create a path. The traffic never passes through A." }
+ref = "week_02_vpc_networking/concepts/05_connecting_vpcs_and_networks.md"
+
+[[question]]
+id = "w02-q22"
+domain = 3
+task = "3.4"
+services = ["AWS Transit Gateway", "VPC Peering"]
+kind = "single"
+stem = """A company has 20 VPCs across several accounts in one Region. Any VPC must be able to reach any other VPC, and the company will add more VPCs and an on-premises network over time. The network team wants the LEAST operational overhead as the number of VPCs grows. Which design should the architect choose?"""
+options = [
+  "A full mesh of VPC peering connections between all 20 VPCs.",
+  "A Site-to-Site VPN connection between every pair of VPCs.",
+  "One large VPC with all workloads moved into it.",
+  "A transit gateway with a VPC attachment for each VPC.",
+]
+answer = ["D"]
+explain = { A = "It works, but 20 VPCs need 190 peering connections, each with routes, and every new VPC adds 20 more.", B = "VPNs between VPCs add tunnels to manage and bandwidth limits for no benefit.", C = "It would force migrating and re-addressing every workload, and it removes the account separation.", D = "Correct. A transit gateway is a regional hub with transitive routing, so each new VPC needs just one attachment." }
+ref = "week_02_vpc_networking/concepts/05_connecting_vpcs_and_networks.md"
+
+[[question]]
+id = "w02-q23"
+domain = 3
+task = "3.4"
+services = ["AWS Transit Gateway", "Amazon VPC"]
+kind = "single"
+stem = """A company's dev and prod VPCs are both attached to one transit gateway, along with a shared-services VPC that holds DNS and tooling. Dev and prod must each reach shared services but must not be able to reach each other. The company wants to enforce this with routing on the existing transit gateway. What should the architect do?"""
+options = [
+  "Give dev and prod a table with only shared-services routes, and shared services a table with dev and prod routes.",
+  "Keep all attachments in the default route table and add a blackhole route for the dev CIDR and one for the prod CIDR.",
+  "Keep all attachments in the default route table and turn off route propagation from the dev and prod attachments.",
+  "Associate each VPC with its own route table and propagate every attachment into every other table.",
+]
+answer = ["A"]
+explain = { A = "Correct. The dev/prod table knows only shared services, so dev and prod cannot reach each other, and the shared-services table knows both ranges, so it can reply.", B = "A blackhole in the one shared table drops traffic to dev and prod from every attachment, including shared services, so its replies fail.", C = "With no dev or prod routes in the table, shared services has no route back, so replies to dev and prod fail.", D = "Every table still learns every range, so dev can reach prod." }
+ref = "week_02_vpc_networking/concepts/05_connecting_vpcs_and_networks.md"
+
+[[question]]
+id = "w02-q24"
+domain = 3
+task = "3.4"
+services = ["AWS Site-to-Site VPN", "Direct Connect"]
+kind = "single"
+stem = """A manufacturer needs its branch office network to reach a VPC within two days. The traffic must be encrypted, and the office already has a router with a public IP address and an internet connection. A dedicated line can be considered later. Which solution should the architect choose first?"""
+options = [
+  "An AWS Direct Connect connection, which is ordered and installed now.",
+  "A VPC peering connection between the VPC and the office network.",
+  "A Site-to-Site VPN connection that ends on a virtual private gateway, with the office router as the customer gateway.",
+  "A separate Client VPN session on each employee's laptop.",
+]
+answer = ["C"]
+explain = { A = "A circuit takes weeks to provision, and the link itself is not encrypted by default.", B = "Peering connects two VPCs only, never an office network.", C = "Correct. A VPN uses IPsec over the existing internet link and can be set up within hours.", D = "It works per user, but the requirement is the whole office network reaching the VPC." }
+ref = "week_02_vpc_networking/concepts/05_connecting_vpcs_and_networks.md"
+
+[[question]]
+id = "w02-q25"
+domain = 3
+task = "3.4"
+services = ["AWS Resource Access Manager", "Amazon VPC", "AWS Organizations"]
+kind = "single"
+stem = """A company uses AWS Organizations. A central network account owns a VPC, and twelve application accounts must launch their EC2 instances and databases directly in that VPC's subnets, so the network team can manage routing and firewalls in one place. The company wants no peering connections and no duplicate address ranges. What should the architect do?"""
+options = [
+  "Create a VPC in each application account and peer each one with the central VPC.",
+  "Attach every application account's VPC to a transit gateway owned by the network account.",
+  "Copy the central VPC's configuration into each application account.",
+  "Share the central VPC's subnets with the application accounts through AWS Resource Access Manager.",
+]
+answer = ["D"]
+explain = { A = "Peering is explicitly ruled out, and it leaves the team managing twelve separate VPCs.", B = "It still means twelve separate VPCs with their own ranges, not shared subnets.", C = "Duplicate VPCs would overlap and could not be managed in one place.", D = "Correct. Subnet sharing lets other accounts launch resources into the owner's subnets while the owner controls the network." }
+ref = "week_02_vpc_networking/concepts/05_connecting_vpcs_and_networks.md"
+
+[[question]]
+id = "w02-q26"
+domain = 4
+task = "4.4"
+services = ["NAT Gateway", "Gateway VPC Endpoint", "Amazon S3"]
+kind = "single"
+stem = """A data company runs ETL instances in private subnets that read and write about 18 TB of data per month in S3 buckets in the same Region. All of this traffic goes through NAT gateways, and the NAT data processing charge is the largest line on the networking bill. Which change is the MOST cost-effective way to reduce it?"""
+options = [
+  "Create another NAT gateway in each AZ and split the traffic between them.",
+  "Create an S3 gateway endpoint and add it to the private route tables.",
+  "Create an S3 interface endpoint in each AZ and use its endpoint-specific names.",
+  "Move to a larger NAT gateway size to lower the per-GB rate.",
+]
+answer = ["B"]
+explain = { A = "More gateways spread the load, but each one still charges per GB processed, and each adds an hourly charge.", B = "Correct. A gateway endpoint adds no hourly or per-GB charge, and S3 traffic stops passing through the NAT gateway.", C = "It also keeps traffic off the NAT gateway, but it adds an hourly charge per AZ and a per-GB charge.", D = "NAT gateways have no sizes, and the per-GB rate does not change with volume." }
+ref = "week_02_vpc_networking/concepts/04_vpc_endpoints_and_privatelink.md"
+
+[[question]]
+id = "w02-q27"
+domain = 4
+task = "4.4"
+services = ["Interface VPC Endpoint", "AWS PrivateLink"]
+kind = "single"
+stem = """A non-production VPC has interface endpoints for six AWS services, each deployed in subnets in three Availability Zones. All workloads in this VPC run in one AZ only, and the team can accept no change to how the applications reach the services. Which action cuts cost the MOST?"""
+options = [
+  "Reduce each interface endpoint to the subnet in the AZ where the workloads run.",
+  "Delete the endpoints and put a NAT gateway in each of the three AZs.",
+  "Turn off private DNS on every endpoint.",
+  "Replace the endpoint security groups with network ACLs.",
+]
+answer = ["A"]
+explain = { A = "Correct. Interface endpoints are billed per hour for each AZ they occupy, so unused AZs only add charges.", B = "It works, but three NAT gateways add hourly charges plus per-GB processing, and applications still pay for their data.", C = "Private DNS controls name resolution, not billing, and turning it off would also change how the apps reach the services.", D = "Security groups and network ACLs carry no charge, so swapping them saves nothing." }
+ref = "week_02_vpc_networking/concepts/04_vpc_endpoints_and_privatelink.md"
+
+[[question]]
+id = "w02-q28"
+domain = 4
+task = "4.4"
+services = ["Amazon ElastiCache", "Amazon EC2", "Amazon VPC"]
+kind = "single"
+stem = """A web tier in two Availability Zones makes thousands of small reads per second against one cache node in AZ-b. Half of those requests cross from AZ-a, and the cross-AZ data transfer charge has become significant. The application must stay highly available across both AZs. Which design reduces the charge at the LOWEST cost?"""
+options = [
+  "Move the whole web tier and cache into AZ-b only.",
+  "Put a Network Load Balancer with cross-zone load balancing in front of the single cache node.",
+  "Run a cache node in each AZ, with each web server reading from the node in its own AZ.",
+  "Run a cache cluster in each AZ and replicate every write between them over a transit gateway.",
+]
+answer = ["C"]
+explain = { A = "It removes the cross-AZ traffic but gives up the high availability the application needs.", B = "It adds a load balancer and spreads requests across AZs, which does not reduce cross-AZ traffic.", C = "Correct. Same-AZ reads avoid the cross-AZ charge, and the second node keeps the tier available if one AZ fails.", D = "It works, but replication through a transit gateway adds per-GB processing on top of the transfer charges." }
+ref = "week_02_vpc_networking/concepts/01_vpc_subnets_and_cidr.md"
+
+[[question]]
+id = "w02-q29"
+domain = 4
+task = "4.4"
+services = ["Elastic IP", "AWS Systems Manager", "Amazon VPC"]
+kind = "single"
+stem = """A cost audit of a dev account finds 40 Elastic IP addresses that are not associated with anything. It also finds 60 dev instances in public subnets with public IPv4 addresses. Engineers reach them only through Session Manager, and the VPC already has interface endpoints for Systems Manager. Every public IPv4 address is billed per hour, in use or idle. Which action removes the MOST public IPv4 cost with the least impact on the team?"""
+options = [
+  "Keep the idle Elastic IPs for later and move the dev instances behind one NAT gateway without public addresses.",
+  "Release the idle Elastic IPs and move the dev instances to private subnets behind a NAT gateway in each AZ.",
+  "Associate the idle Elastic IPs with the dev instances in place of their auto-assigned public addresses.",
+  "Release the idle Elastic IPs and remove the public IPv4 addresses from the dev instances.",
+]
+answer = ["D"]
+explain = { A = "The NAT gateway adds hourly and per-GB charges, and the 40 idle addresses keep billing.", B = "It removes the public addresses, but NAT gateways in every AZ cost more than they save, and Session Manager already works through the endpoints.", C = "It swaps 40 auto-assigned addresses for the Elastic IPs, so 60 addresses still bill each hour. Option D leaves none.", D = "Correct. Releasing idle addresses stops their charge, and Session Manager reaches the instances through the existing endpoints, so public addresses add nothing." }
+ref = "week_02_vpc_networking/concepts/02_routing_internet_and_nat.md"
+
+[[question]]
+id = "w02-q30"
+domain = 4
+task = "4.4"
+services = ["NAT Gateway", "Amazon VPC"]
+kind = "multi"
+choose = 2
+stem = """A company runs a short-lived training lab VPC and a production VPC, each with private subnets in three Availability Zones. The lab can tolerate a short loss of internet access. Production must survive the loss of an AZ. The company wants the MOST cost-effective NAT design that still meets each requirement. Which combination of choices should the architect make? (Select TWO.)"""
+options = [
+  "In the lab VPC, create a NAT gateway in each of the three AZs.",
+  "In the lab VPC, use a single NAT gateway and delete it when the lab is idle.",
+  "In production, use one NAT gateway for all three AZs.",
+  "In production, create one NAT gateway per AZ, each AZ routing to its own.",
+  "In production, use one NAT gateway with extra Elastic IP addresses attached.",
+]
+answer = ["B", "D"]
+explain = { A = "It works, but three gateways cost three times as much for a lab that can tolerate an outage.", B = "Correct. The lab can accept one AZ's risk, and deleting the gateway while idle stops its hourly charge.", C = "A single gateway fails with its AZ, so production would lose outbound access.", D = "Correct. A gateway per AZ with a local route keeps each AZ independent, and no cheaper design survives an AZ loss.", E = "Extra addresses add capacity and cost, but the gateway still sits in a single AZ." }
+ref = "week_02_vpc_networking/concepts/02_routing_internet_and_nat.md"

@@ -1,0 +1,517 @@
+[[question]]
+id = "w03-q01"
+domain = 3
+task = "3.2"
+services = ["Amazon EC2"]
+kind = "single"
+stem = """A fintech company runs an in-memory database on EC2 that holds a 100 GiB working set in RAM. CPU use is modest and 16 vCPUs are plenty. The software runs on Arm, and the company wants the lowest hourly cost that still fits the whole dataset in memory. Which instance type should the architect choose?"""
+options = [
+  "Run the database on c7g.4xlarge instances.",
+  "Run the database on m7g.4xlarge instances.",
+  "Run the database on r7g.4xlarge instances.",
+  "Run the database on m7g.8xlarge instances.",
+]
+answer = ["C"]
+explain = { A = "A c7g.4xlarge has 16 vCPUs but only 32 GiB of memory, far too little for a 100 GiB working set.", B = "An m7g.4xlarge has 16 vCPUs and 64 GiB, which is still short of 100 GiB.", C = "Correct. A memory optimized r7g.4xlarge has 16 vCPUs and 128 GiB (8 GiB per vCPU), so the data fits at the lowest hourly price.", D = "An m7g.8xlarge has 128 GiB, so it works, but it carries 32 vCPUs the workload does not need and costs more per hour than the r7g.4xlarge." }
+ref = "week_03_compute_and_scaling/concepts/01_ec2_instance_types.md"
+
+[[question]]
+id = "w03-q02"
+domain = 3
+task = "3.2"
+services = ["Amazon EC2"]
+kind = "single"
+stem = """An internal reporting tool runs on a t3.micro instance in unlimited mode. Over the past month its CPU averaged about 40 percent around the clock, far above the 10 percent per-vCPU baseline, and the bill shows surplus-credit charges. Users must not see slower responses. What should the architect do?"""
+options = [
+  "Switch the t3.micro instance to standard credit mode and keep it running.",
+  "Move the tool to a fixed-performance general purpose type such as m7i.large.",
+  "Buy a block of extra CPU credits for the t3.micro in the EC2 console or API.",
+  "Stop and start the instance every night to refill its CPU credit balance.",
+]
+answer = ["B"]
+explain = { A = "In standard mode the instance falls back to its 10 percent baseline once credits run out, so responses would slow down.", B = "Correct. A burstable instance suits a low, spiky load. A steady 40 percent load belongs on fixed-performance CPUs, with no surplus-credit charge.", C = "CPU credits cannot be purchased. They are earned at a fixed rate per hour.", D = "Credits persist for 7 days after a stop on T3 and are not refilled by a restart, so this changes nothing." }
+ref = "week_03_compute_and_scaling/concepts/01_ec2_instance_types.md"
+
+[[question]]
+id = "w03-q03"
+domain = 3
+task = "3.2"
+services = ["Amazon EC2", "Placement groups"]
+kind = "single"
+stem = """A research lab runs a tightly coupled computational fluid dynamics job on 32 identical c7i instances. The MPI processes exchange small messages constantly, so network latency and throughput between nodes matter more than fault isolation. All instances are launched in a single request. Which placement strategy should the lab use?"""
+options = [
+  "A cluster placement group, with all 32 instances in one Availability Zone.",
+  "A spread placement group that spans three Availability Zones.",
+  "A partition placement group that uses seven partitions.",
+  "No placement group, with the instances divided between two Availability Zones in the Region.",
+]
+answer = ["A"]
+explain = { A = "Correct. A cluster placement group packs instances close together in one AZ for low latency and high network throughput, which tightly coupled HPC needs.", B = "A spread group places instances on distinct racks, which improves fault isolation and adds distance between them. It also holds only 7 running instances per AZ.", C = "A partition group separates instances onto different racks for big-data fault domains, the opposite of what an MPI job wants.", D = "Instances in different AZs have higher latency between them, and there is no placement control at all." }
+ref = "week_03_compute_and_scaling/concepts/03_launching_instances.md"
+
+[[question]]
+id = "w03-q04"
+domain = 3
+task = "3.2"
+services = ["Amazon EC2", "Placement groups"]
+kind = "single"
+stem = """A healthcare company runs five critical license-server instances in one Availability Zone. A single hardware failure must never take down more than one of them. The fleet will not grow and no application needs to know where each instance sits. Which is the simplest option that guarantees this?"""
+options = [
+  "A cluster placement group that holds all five instances.",
+  "A partition placement group that uses three partitions.",
+  "All five instances on one Dedicated Host with host affinity.",
+  "A spread placement group that holds all five instances.",
+]
+answer = ["D"]
+explain = { A = "A cluster group packs instances close together, so one failure can affect several of them.", B = "With three partitions, five instances must share a partition, so two or more of them can sit on the same racks.", C = "A single host is a single point of failure for all five instances.", D = "Correct. A spread group puts each instance on distinct hardware, and it allows up to 7 running instances per AZ, so five fit." }
+ref = "week_03_compute_and_scaling/concepts/03_launching_instances.md"
+
+[[question]]
+id = "w03-q05"
+domain = 3
+task = "3.2"
+services = ["Amazon EC2", "Placement groups"]
+kind = "single"
+stem = """A data company runs a 40-node Cassandra cluster in one Availability Zone. Cassandra is rack-aware and places its replicas by rack, so the operators need to see which group of instances shares racks. A rack failure must affect only part of the cluster. Which placement strategy fits?"""
+options = [
+  "A cluster placement group that holds all 40 nodes in the Availability Zone.",
+  "A spread placement group that holds all 40 nodes.",
+  "A partition placement group with the nodes divided across partitions.",
+  "Dedicated Hosts, with one Cassandra node placed on each dedicated host.",
+]
+answer = ["C"]
+explain = { A = "A cluster group concentrates the nodes close together, which raises the blast radius of a rack failure.", B = "A spread group allows only 7 running instances per AZ, so it cannot hold 40 nodes.", C = "Correct. A partition group places instances in partitions on separate racks and exposes which instance is in which partition, for rack-aware systems such as Cassandra, Hadoop and Kafka.", D = "Dedicated Hosts give physical-server isolation and licensing control, but not rack awareness, and cost far more." }
+ref = "week_03_compute_and_scaling/concepts/03_launching_instances.md"
+
+[[question]]
+id = "w03-q06"
+domain = 3
+task = "3.2"
+services = ["Amazon EC2", "Amazon EBS"]
+kind = "single"
+stem = """A video-editing firm keeps in-progress project files on a volume local to an EC2 instance. To save money, the instance is stopped every night and started again each morning. The files must still be present after every start. The engineer is weighing local NVMe storage against other options. Where should the project files live?"""
+options = [
+  "On an Amazon EBS gp3 volume attached to the instance.",
+  "On the NVMe instance store volumes that come with the instance type.",
+  "On the instance store volumes combined into a RAID 0 array.",
+  "In a RAM disk mounted on the instance.",
+]
+answer = ["A"]
+explain = { A = "Correct. EBS volumes persist independently of the instance, so the files survive a stop and start.", B = "Instance store data is erased when the instance stops, hibernates or terminates, and survives only a reboot.", C = "RAID 0 adds speed, not durability. The data is still erased on a stop.", D = "A RAM disk is lost whenever the instance stops." }
+ref = "week_03_compute_and_scaling/concepts/03_launching_instances.md"
+
+[[question]]
+id = "w03-q07"
+domain = 3
+task = "3.2"
+services = ["Amazon EC2", "Amazon EBS"]
+kind = "single"
+stem = """A trading analytics firm runs an in-memory model on a new Linux instance with 64 GiB of RAM. The model takes 40 minutes to warm up each morning. The instance is shut down overnight to save money, and the firm wants the warmed-up memory state back within a couple of minutes after the start. How should the architect set this up?"""
+options = [
+  "Stop the instance each night and start it again in the morning with the same EBS root volume.",
+  "Launch it with hibernation enabled and an encrypted EBS root volume, then hibernate nightly.",
+  "Launch it with hibernation enabled and an instance store root volume, then hibernate the instance nightly.",
+  "Launch it normally, then turn on hibernation for the running instance and hibernate it nightly.",
+]
+answer = ["B"]
+explain = { A = "A plain stop discards the contents of RAM, so the model would have to warm up again.", B = "Correct. Hibernation saves RAM to the root volume, and it must be enabled at launch with an encrypted EBS root volume large enough for the RAM, the OS and the apps.", C = "The root volume of a hibernating instance must be EBS and encrypted. An instance store root volume is not supported.", D = "Hibernation cannot be enabled on an instance that is already running. It has to be chosen at launch." }
+ref = "week_03_compute_and_scaling/concepts/03_launching_instances.md"
+
+[[question]]
+id = "w03-q08"
+domain = 1
+task = "1.2"
+services = ["Amazon EC2", "Instance Metadata Service"]
+kind = "single"
+stem = """A company runs a public web application on EC2 instances whose AWS SDK reads role credentials from the instance role. A penetration test showed that a server-side request forgery flaw lets an attacker make the application fetch http://169.254.169.254/ and read those credentials. Developers cannot fix the application code this quarter. What is the most effective change?"""
+options = [
+  "Add an outbound security group rule that denies all traffic to 169.254.169.254/32.",
+  "Set HttpTokens to required in the launch template and on the running instances.",
+  "Disable the instance metadata service on the instances.",
+  "Lower the PUT response hop limit to 1 and leave IMDSv1 enabled.",
+]
+answer = ["B"]
+explain = { A = "Security groups only contain allow rules, so they cannot express a deny, and they are not the control for metadata access.", B = "Correct. With IMDSv2 required, every read needs a session token obtained by a PUT request, which a simple forwarded GET from an SSRF flaw cannot produce.", C = "The SDK on the instances reads role credentials from the metadata service, so disabling it would break the application.", D = "A hop limit of 1 does not stop requests made from the instance itself, and leaving IMDSv1 enabled still allows plain GET reads." }
+ref = "week_03_compute_and_scaling/concepts/03_launching_instances.md"
+
+[[question]]
+id = "w03-q09"
+domain = 1
+task = "1.2"
+services = ["Amazon EC2", "IAM", "Amazon S3"]
+kind = "single"
+stem = """A development team placed an IAM user's access key and secret key in the user data script of an Auto Scaling group's launch template so the application can read objects from Amazon S3. A security review found that anyone who can describe instance attributes can read them. What should the architect do?"""
+options = [
+  "Rotate the IAM user's access keys every 30 days and keep them in user data.",
+  "Bake the access keys into the AMI and remove them from user data.",
+  "Keep the keys in a file in an S3 bucket and download it when the instance boots.",
+  "Attach an IAM role with S3 read access to the instances in an instance profile.",
+]
+answer = ["D"]
+explain = { A = "Rotation shortens exposure but long-term keys still sit in user data, readable by anyone with describe access.", B = "Keys in an AMI are still long-term credentials that travel with every copy of the image.", C = "The script would need credentials to fetch the file, and the keys would still be long-term and stored in plain form.", D = "Correct. A role in an instance profile gives the instance temporary credentials that rotate automatically, with nothing secret in user data." }
+ref = "week_03_compute_and_scaling/concepts/03_launching_instances.md"
+
+[[question]]
+id = "w03-q10"
+domain = 1
+task = "1.2"
+services = ["Amazon EC2", "Instance Metadata Service"]
+kind = "single"
+stem = """A company moved containerized services onto EC2 and now requires IMDSv2 (HttpTokens set to required) on all instances. The containers use default bridge networking, which cannot be changed. Since the change, the SDK inside the containers fails to get role credentials, while processes on the host still work. What should the architect change?"""
+options = [
+  "Set the metadata PUT response hop limit to 2.",
+  "Set HttpTokens back to optional on all of the instances.",
+  "Raise the metadata token time-to-live to six hours.",
+  "Enable the IPv6 endpoint of the instance metadata service.",
+]
+answer = ["A"]
+explain = { A = "Correct. The default hop limit of 1 lets the token response reach the host but not a container behind a bridge, so a limit of 2 is the recommended setting for containers.", B = "This would work, but it re-allows IMDSv1, which the company requires to stay disabled.", C = "The token lifetime does not affect whether the response can reach the container.", D = "The IPv6 endpoint is an alternative address, not a fix for the network hop that the response cannot cross." }
+ref = "week_03_compute_and_scaling/concepts/03_launching_instances.md"
+
+[[question]]
+id = "w03-q11"
+domain = 2
+task = "2.2"
+services = ["Amazon EC2 Auto Scaling", "Elastic Load Balancing"]
+kind = "single"
+stem = """An e-commerce company runs its web tier on a single EC2 instance in one Availability Zone. One instance can handle the normal load. The company wants the site to stay up with no downtime if an Availability Zone is lost, and it will put an Application Load Balancer in front. Which Auto Scaling design meets this requirement?"""
+options = [
+  "A group spread over two subnets of one AZ with a minimum capacity of two.",
+  "A group spread over two AZs with a minimum capacity of one and a maximum of four.",
+  "A group across two AZs with a minimum of two instances.",
+  "A group of two instances in one AZ and a spread placement group.",
+]
+answer = ["C"]
+explain = { A = "Both subnets are in the same AZ, so an AZ outage takes down every instance.", B = "With a minimum of one, the group may hold a single instance in the AZ that fails, and the replacement takes minutes to launch, which is downtime.", C = "Correct. A minimum of two across two AZs keeps one instance in each AZ, so the survivor serves traffic while the group replaces the lost one.", D = "A spread placement group protects against hardware failure, not against loss of the whole AZ." }
+ref = "week_03_compute_and_scaling/concepts/04_auto_scaling.md"
+
+[[question]]
+id = "w03-q12"
+domain = 2
+task = "2.2"
+services = ["Amazon EC2 Auto Scaling", "Elastic Load Balancing"]
+kind = "single"
+stem = """Instances in an Auto Scaling group behind an Application Load Balancer sometimes keep passing the EC2 status checks while the web application process has crashed and returns HTTP 502. The ALB marks them unhealthy and stops sending traffic, but the group leaves the broken instances running and capacity falls. The group uses its default health check settings. What should the architect do?"""
+options = [
+  "Create a CloudWatch alarm on StatusCheckFailed that triggers a scale-out.",
+  "Increase the health check grace period of the group.",
+  "Lower the unhealthy threshold of the target group health check.",
+  "Turn on Elastic Load Balancing health checks for the Auto Scaling group.",
+]
+answer = ["D"]
+explain = { A = "A scale-out adds capacity but does not replace the broken instances, and the status check is passing anyway.", B = "A longer grace period only delays when failing checks are acted on. It does not add the ALB result as a health source.", C = "A lower threshold makes the ALB mark targets unhealthy faster, but the group still ignores the ALB result.", D = "Correct. By default the group relies on EC2 status checks only. With ELB health checks enabled, an instance the ALB reports as unhealthy is replaced." }
+ref = "week_03_compute_and_scaling/concepts/04_auto_scaling.md"
+
+[[question]]
+id = "w03-q13"
+domain = 2
+task = "2.2"
+services = ["Amazon EC2 Auto Scaling", "Elastic Load Balancing"]
+kind = "single"
+stem = """An Auto Scaling group behind an ALB uses ELB health checks. New instances need about six minutes to install packages and start the application. They are marked unhealthy and replaced before they finish booting, so the group keeps cycling. The group must keep replacing instances whose application fails later. What should the architect do?"""
+options = [
+  "Increase the health check grace period of the group to 600 seconds.",
+  "Set a default instance warmup of 600 seconds on the group.",
+  "Increase the default cooldown of the group to 600 seconds.",
+  "Increase the target group deregistration delay to 600 seconds.",
+]
+answer = ["A"]
+explain = { A = "Correct. The grace period is the minimum time a new instance is kept in service before failing health checks can terminate it, so it must exceed the boot time.", B = "Instance warmup keeps new instances out of the scaling metrics for a while. It does not stop health-check replacement.", C = "The cooldown applies to simple scaling policies, not to health check replacement.", D = "The deregistration delay controls how long an instance drains connections when it is removed, not how long a new one is protected." }
+ref = "week_03_compute_and_scaling/concepts/04_auto_scaling.md"
+
+[[question]]
+id = "w03-q14"
+domain = 2
+task = "2.2"
+services = ["Amazon EC2 Auto Scaling", "Launch templates"]
+kind = "single"
+stem = """A company runs a web fleet of eight instances in an Auto Scaling group. The launch template's user data installs the application at first boot. The team created a new template version whose user data installs release 2.0 and set the group to use it. The existing instances still run release 1.0. At least 75 percent of capacity must stay in service during the rollout. What should the architect do?"""
+options = [
+  "Reboot the instances two at a time so the user data runs again with the new version.",
+  "Start an instance refresh with a minimum healthy percentage of 75.",
+  "Set the new launch template version as the default version, which updates the running instances.",
+  "Stop and start the instances two at a time so the new user data runs at the next start.",
+]
+answer = ["B"]
+explain = { A = "By default, user data runs only during the first boot cycle, so a reboot does not run it again.", B = "Correct. An instance refresh replaces instances in batches with the current template version while keeping the chosen share of capacity healthy.", C = "A change to a template version never touches running instances. Only new launches use it.", D = "User data runs only on the first boot, and an updated script is not run automatically on a later start." }
+ref = "week_03_compute_and_scaling/concepts/04_auto_scaling.md"
+
+[[question]]
+id = "w03-q15"
+domain = 2
+task = "2.2"
+services = ["Amazon EC2 Auto Scaling", "Lifecycle hooks", "Warm pools"]
+kind = "multi"
+choose = 2
+stem = """A company runs a video-processing API in an Auto Scaling group. Each new instance runs an initialization script of about ten minutes that downloads models and warms caches. During traffic surges the new capacity arrives too late. The company wants capacity to be ready quickly when the group scales out, and an instance whose start-up work fails must never receive traffic; the group should discard it and launch another. Which combination of steps meets these requirements? (Select TWO.)"""
+options = [
+  "Add a warm pool of stopped instances to the Auto Scaling group.",
+  "Replace the target tracking policy with a simple scaling policy and a 600-second cooldown.",
+  "Double the maximum size of the Auto Scaling group.",
+  "Add a launch lifecycle hook that the start-up script completes when it finishes.",
+  "Change the termination policy of the group to NewestInstance.",
+]
+answer = ["A", "D"]
+explain = { A = "Correct. A warm pool keeps instances already initialized beside the group, which cuts scale-out latency.", B = "Simple scaling with a cooldown reacts more slowly and does nothing about the ten-minute initialization.", C = "A higher maximum allows more instances but does not make any of them ready sooner.", D = "Correct. A launch lifecycle hook holds the instance in a wait state until the script completes it. An Abandon result terminates the instance and the group launches a replacement.", E = "The termination policy chooses which instances to remove on scale-in. It has no effect on launches." }
+ref = "week_03_compute_and_scaling/concepts/04_auto_scaling.md"
+
+[[question]]
+id = "w03-q16"
+domain = 2
+task = "2.1"
+services = ["Amazon EC2 Auto Scaling"]
+kind = "single"
+stem = """A payroll application runs in an Auto Scaling group. Every weekday at 8:00 a.m. local time, 400 employees log in within minutes. New instances need about 10 minutes to start, so target tracking scaling lags behind the surge. The team does not want engineers adjusting capacity by hand. What should the architect do?"""
+options = [
+  "Lower the CPU target of the target tracking policy to 20 percent.",
+  "Have an on-call engineer raise the desired capacity by hand every morning at 7:30 a.m.",
+  "Create a recurring scheduled action that raises capacity before 8:00 on weekdays.",
+  "Add a step scaling policy with a 300-second cooldown and a low CPU alarm threshold.",
+]
+answer = ["C"]
+explain = { A = "A lower target adds capacity earlier, but the group runs at higher cost all day and still reacts only after load arrives.", B = "It would work, but it is the manual adjustment the team wants to avoid.", C = "Correct. A recurring scheduled action changes minimum, maximum and desired capacity at a set time, so instances are running before a predictable peak.", D = "A step policy still reacts to a metric after the surge starts, so instances launch too late." }
+ref = "week_03_compute_and_scaling/concepts/04_auto_scaling.md"
+
+[[question]]
+id = "w03-q17"
+domain = 2
+task = "2.1"
+services = ["Amazon EC2 Auto Scaling", "Application Load Balancer", "Amazon CloudWatch"]
+kind = "single"
+stem = """A news site runs web servers in an Auto Scaling group behind an ALB. Requests cost about the same to serve, but CPU stays low because most time is spent waiting on a downstream API, so CPU-based scaling reacts too late. The team wants the group to hold about 500 requests per instance. Which policy should the architect create?"""
+options = [
+  "A target tracking policy on the ALBRequestCountPerTarget metric with a target of 500.",
+  "A target tracking policy on the load balancer's RequestCount metric with a target of 500.",
+  "A target tracking policy on ASGAverageCPUUtilization with a target of 50 percent.",
+  "A step scaling policy that adds one instance whenever average CPU passes 30 percent.",
+]
+answer = ["A"]
+explain = { A = "Correct. ALBRequestCountPerTarget is a predefined target tracking metric that divides the request count by the number of targets, so it scales with load.", B = "The load balancer's total RequestCount does not work as a target tracking metric, because it does not change in inverse proportion to the group size.", C = "CPU stays low in this workload, so this policy would not scale out when it should.", D = "This also depends on CPU, which does not reflect the load here." }
+ref = "week_03_compute_and_scaling/concepts/04_auto_scaling.md"
+
+[[question]]
+id = "w03-q18"
+domain = 2
+task = "2.1"
+services = ["Amazon EC2 Auto Scaling", "Amazon ElastiCache", "Amazon DynamoDB", "Application Load Balancer"]
+kind = "multi"
+choose = 2
+stem = """A company runs a web application in an Auto Scaling group behind an ALB. The application keeps user session state in local instance memory. When the group scales in, users lose their sessions and must sign in again. The group must still be able to scale in freely. Which TWO changes would each fix this problem? (Select TWO.)"""
+options = [
+  "Turn on duration-based sticky sessions on the target group.",
+  "Store the session data in Amazon ElastiCache for Redis.",
+  "Store the session data in Amazon DynamoDB with a TTL attribute.",
+  "Raise the target group deregistration delay to 3,600 seconds.",
+  "Enable instance scale-in protection on all instances in the group.",
+]
+answer = ["B", "C"]
+explain = { A = "Stickiness pins a user to one instance, but when that instance is terminated the session still disappears.", B = "Correct. Moving state out of the instances to a shared store keeps sessions alive when any instance is removed.", C = "Correct. DynamoDB is also a shared store, and a TTL expires abandoned sessions.", D = "A longer delay only lets in-flight requests drain. Sessions are still lost when the instance finally terminates.", E = "Protecting every instance stops the group from scaling in, which breaks the requirement." }
+ref = "week_03_compute_and_scaling/concepts/05_elastic_load_balancing.md"
+
+[[question]]
+id = "w03-q19"
+domain = 2
+task = "2.2"
+services = ["Elastic Load Balancing", "Amazon EC2 Auto Scaling"]
+kind = "single"
+stem = """A file-sharing service runs on an Auto Scaling group behind an ALB. Uploads can take up to four minutes. The target group was created from a template that shortened several timeouts to 30 seconds. During scale-in events, users see failed uploads on the instances being removed. What should the architect change?"""
+options = [
+  "Raise the load balancer's idle timeout to 300 seconds.",
+  "Set the target group's slow start duration to 300 seconds.",
+  "Raise the group's health check grace period to 300 seconds.",
+  "Set the target group's deregistration delay to 300 seconds.",
+]
+answer = ["D"]
+explain = { A = "The idle timeout closes connections that carry no data. An upload is active, and the failure happens at scale-in.", B = "Slow start ramps up traffic to newly registered targets. It does not affect targets that are being removed.", C = "The grace period protects new instances from health-check termination. It does not affect removal.", D = "Correct. The deregistration delay gives in-flight requests time to complete before the target is removed. 300 seconds, the default, covers a four-minute upload." }
+ref = "week_03_compute_and_scaling/concepts/05_elastic_load_balancing.md"
+
+[[question]]
+id = "w03-q20"
+domain = 3
+task = "3.2"
+services = ["Application Load Balancer", "Amazon EC2 Auto Scaling"]
+kind = "single"
+stem = """A company runs two services on separate Auto Scaling groups: an API that serves paths under /api/* and an image service that serves paths under /images/*. Both must be reached at the single HTTPS name example.com through one load balancer, with each path going to its own fleet. Which design should the architect choose?"""
+options = [
+  "An internet-facing NLB with a TLS listener and one target group per service.",
+  "An internet-facing ALB whose HTTPS listener has a path-pattern rule for each service.",
+  "An internet-facing ALB whose HTTPS listener has a host-header rule for each service.",
+  "Two internet-facing ALBs behind Route 53 weighted records for example.com.",
+]
+answer = ["B"]
+explain = { A = "A Network Load Balancer works at layer 4 and cannot route by URL path.", B = "Correct. An ALB works at layer 7, and listener rules with path-pattern conditions forward each path to its own target group.", C = "Both services share the host example.com, so host-header rules cannot tell them apart.", D = "DNS records see only the host name, not the path, and weighted records would split traffic randomly between the two ALBs." }
+ref = "week_03_compute_and_scaling/concepts/05_elastic_load_balancing.md"
+
+[[question]]
+id = "w03-q21"
+domain = 3
+task = "3.2"
+services = ["Application Load Balancer", "AWS Certificate Manager"]
+kind = "multi"
+choose = 2
+stem = """A SaaS company serves www.alpha.example and www.beta.example from the same account. Each domain has its own target group. The company wants a single internet-facing ALB to terminate HTTPS for both domains, each with its own certificate. Which combination of steps meets these requirements? (Select TWO.)"""
+options = [
+  "Create path-pattern rules that match each domain name.",
+  "Create host-header rules on the HTTPS listener that forward each domain to its own target group.",
+  "Create a second ALB for the second domain in the same subnets.",
+  "Add a certificate for each domain to the HTTPS listener and rely on SNI.",
+  "Place a Network Load Balancer with one TCP listener per domain in front of the ALB.",
+]
+answer = ["B", "D"]
+explain = { A = "A path pattern is applied only to the URL path, so it cannot match a domain name.", B = "Correct. The host-header condition matches the requested host name, so one listener can route two domains to different target groups.", C = "It would work, but it uses two load balancers instead of the single one the company wants.", D = "Correct. A listener can hold multiple certificates, and Server Name Indication lets the ALB pick the one matching the requested name.", E = "A TCP listener cannot read the host name, so it adds a hop and does not route by domain." }
+ref = "week_03_compute_and_scaling/concepts/05_elastic_load_balancing.md"
+
+[[question]]
+id = "w03-q22"
+domain = 3
+task = "3.2"
+services = ["Network Load Balancer", "Elastic IP"]
+kind = "single"
+stem = """A payments company exposes a TCP service on EC2 instances to bank partners. Each partner firewall allows only a small fixed list of IP addresses, one address for each Availability Zone. The backend must see each client's original source IP address. Which load balancer design meets these requirements?"""
+options = [
+  "An internet-facing ALB with an Elastic IP address in each subnet, passing X-Forwarded-For to the instances.",
+  "An internet-facing ALB with a Route 53 alias record that returns the ALB addresses.",
+  "An internet-facing Network Load Balancer with an Elastic IP address per AZ and instance targets.",
+  "A Gateway Load Balancer with firewall instances as targets in each Availability Zone.",
+]
+answer = ["C"]
+explain = { A = "An ALB does not accept Elastic IP addresses, and its addresses can change as it scales.", B = "ALB addresses are not fixed, so a partner allow-list cannot depend on them.", C = "Correct. An NLB has one static IP per enabled AZ, which can be an Elastic IP, and client IP preservation is on by default for instance targets.", D = "A Gateway Load Balancer transparently forwards traffic to inspection appliances. It is not an endpoint for partner access." }
+ref = "week_03_compute_and_scaling/concepts/05_elastic_load_balancing.md"
+
+[[question]]
+id = "w03-q23"
+domain = 3
+task = "3.2"
+services = ["Network Load Balancer"]
+kind = "single"
+stem = """A game studio runs UDP-based game servers on EC2. Peak traffic reaches millions of requests per second, and latency must stay in the low milliseconds. Players connect through one DNS name. Which load balancer should the architect use?"""
+options = [
+  "A Network Load Balancer with a UDP listener.",
+  "An Application Load Balancer with a UDP listener.",
+  "A Classic Load Balancer with a UDP listener.",
+  "A Gateway Load Balancer with a UDP listener.",
+]
+answer = ["A"]
+explain = { A = "Correct. A Network Load Balancer works at layer 4, supports TCP, UDP and TLS, and handles millions of requests per second at very low latency.", B = "An ALB listens on HTTP and HTTPS only, not UDP.", C = "A Classic Load Balancer is the previous generation, with TCP, SSL, HTTP and HTTPS listeners only.", D = "A Gateway Load Balancer carries GENEVE traffic to inspection appliances. It is not for serving a game." }
+ref = "week_03_compute_and_scaling/concepts/05_elastic_load_balancing.md"
+
+[[question]]
+id = "w03-q24"
+domain = 3
+task = "3.2"
+services = ["Gateway Load Balancer", "Amazon VPC"]
+kind = "single"
+stem = """A bank must inspect all traffic entering and leaving its VPC with a third-party firewall appliance sold as an AMI. The vendor's product is mandatory. The appliances must scale with traffic, and traffic must pass through them transparently without any change to the applications. Which design should the architect use?"""
+options = [
+  "Put the appliances behind a Network Load Balancer and change each application to send traffic to its address.",
+  "Put the appliances behind an ALB with AWS WAF and point the route tables at the ALB.",
+  "Deploy AWS Network Firewall in the VPC and migrate the vendor's rules into it.",
+  "Put the appliances behind a Gateway Load Balancer and route traffic through Gateway Load Balancer endpoints.",
+]
+answer = ["D"]
+explain = { A = "Applications would have to be changed to target the load balancer, which breaks the transparency requirement.", B = "A route table cannot target an ALB, and an ALB works at layer 7, not on all IP traffic.", C = "Network Firewall is managed by AWS and would replace the mandatory vendor product.", D = "Correct. A Gateway Load Balancer works at layer 3, forwards all IP packets with GENEVE, and scales a fleet of virtual appliances behind route-table-based endpoints." }
+ref = "week_03_compute_and_scaling/concepts/05_elastic_load_balancing.md"
+
+[[question]]
+id = "w03-q25"
+domain = 2
+task = "2.1"
+services = ["Network Load Balancer", "Elastic Load Balancing"]
+kind = "single"
+stem = """A company runs a TCP service behind an internet-facing Network Load Balancer enabled in two Availability Zones. AZ a holds 2 targets and AZ b holds 8. Clients are spread evenly across the two NLB addresses, so the 2 instances in AZ a are saturated while those in AZ b stay idle. The company cannot move capacity between zones. What should the architect do?"""
+options = [
+  "Turn on sticky sessions for the target group.",
+  "Turn on cross-zone load balancing for the load balancer.",
+  "Register the targets by IP address instead of by instance ID.",
+  "Turn off client IP preservation on the target group.",
+]
+answer = ["B"]
+explain = { A = "Stickiness keeps a client on the same target, which does not rebalance the load between zones.", B = "Correct. Cross-zone load balancing is off by default on an NLB, so each zone's node sends traffic only to its own targets. Turning it on spreads requests across all 10 targets, with inter-AZ data transfer charges.", C = "The target type has no effect on how traffic is divided between zones.", D = "Client IP preservation controls the source address the target sees, not the distribution." }
+ref = "week_03_compute_and_scaling/concepts/05_elastic_load_balancing.md"
+
+[[question]]
+id = "w03-q26"
+domain = 4
+task = "4.2"
+services = ["Savings Plans", "Amazon EC2", "AWS Lambda"]
+kind = "single"
+stem = """A company runs a steady baseline workload on m7g and c7i instances plus Lambda functions, around the clock. In six months it plans to move the x86 instances to Graviton and may change instance families again. It wants the lowest cost for the next year without changing how the workloads are deployed. Which is the MOST cost-effective option?"""
+options = [
+  "Buy a one-year Compute Savings Plan sized to the steady baseline.",
+  "Buy one-year Standard Reserved Instances for each current instance type.",
+  "Buy a one-year EC2 Instance Savings Plan for the m7g family only.",
+  "Keep everything On-Demand and review the bill every quarter.",
+]
+answer = ["A"]
+explain = { A = "Correct. A Compute Savings Plan discounts any instance family, size and Region, and also applies to Lambda, so it follows the planned migration.", B = "Standard RIs are tied to an instance type, so the c7i reservations would sit unused after the move to Graviton, and they do not cover Lambda.", C = "An EC2 Instance Savings Plan is tied to one family in a Region and does not cover c7i or Lambda.", D = "It works with no commitment, but it pays full On-Demand prices for a steady workload." }
+ref = "week_03_compute_and_scaling/concepts/02_purchasing_options.md"
+
+[[question]]
+id = "w03-q27"
+domain = 4
+task = "4.2"
+services = ["Amazon EC2 Auto Scaling", "Spot Instances"]
+kind = "multi"
+choose = 2
+stem = """A media company runs a stateless transcoding service in an Auto Scaling group of up to 20 instances. At least 4 instances must always run, and the service tolerates interruption of the instances above that number. The company wants the lowest cost that respects this rule. Which combination of steps meets these requirements? (Select TWO.)"""
+options = [
+  "Use the lowest-price Spot allocation strategy with a single instance type.",
+  "Configure a mixed instances policy with an On-Demand base capacity of four and Spot Instances for capacity above it.",
+  "Set the Spot allocation strategy to price-capacity-optimized and offer several instance types across all AZs.",
+  "Run every instance as Spot through a persistent request in one Availability Zone.",
+  "Run the whole group On-Demand and cover it with a Compute Savings Plan.",
+]
+answer = ["B", "C"]
+explain = { A = "Lowest-price is not recommended because it picks the cheapest pools, which carry the highest interruption risk, and a single type narrows the choice further.", B = "Correct. An On-Demand base keeps the four required instances running, and the Spot discount applies to everything above it.", C = "Correct. Price-capacity-optimized weighs both price and available capacity, and many types and AZs give it more Spot pools to choose from.", D = "All-Spot in one zone gives no guaranteed base of four and little pool diversity.", E = "It meets the availability rule, but it pays more than Spot for the interruptible portion of the fleet." }
+ref = "week_03_compute_and_scaling/concepts/02_purchasing_options.md"
+
+[[question]]
+id = "w03-q28"
+domain = 4
+task = "4.2"
+services = ["Amazon EC2", "Dedicated Hosts"]
+kind = "single"
+stem = """A software company must run a database that is licensed per physical core. The vendor's audit requires the company to report the number of sockets and cores the workload runs on and to keep the VM on the same physical server over time. Which EC2 option meets these requirements?"""
+options = [
+  "Dedicated Instances in a VPC with dedicated tenancy.",
+  "Shared-tenancy On-Demand Instances covered by a Compute Savings Plan.",
+  "Dedicated Hosts with host affinity.",
+  "Zonal Reserved Instances for the chosen instance type.",
+]
+answer = ["C"]
+explain = { A = "Dedicated Instances run on single-tenant hardware, but they give no visibility of sockets and cores and no host affinity.", B = "Shared tenancy gives no view of the physical server at all.", C = "Correct. A Dedicated Host is a whole physical server that shows sockets and cores and supports host affinity, which is what per-core BYOL licensing audits need.", D = "A zonal RI reserves capacity and a discount, but the instance still runs on shared hardware." }
+ref = "week_03_compute_and_scaling/concepts/02_purchasing_options.md"
+
+[[question]]
+id = "w03-q29"
+domain = 4
+task = "4.2"
+services = ["Amazon EC2", "On-Demand Capacity Reservations"]
+kind = "single"
+stem = """A retailer runs a two-week promotional event and needs 40 c7i.xlarge instances guaranteed to launch in us-east-1a on the first day. After the event the instances are not needed, and the company does not want a long commitment. What is the MOST cost-effective way to guarantee the capacity?"""
+options = [
+  "Buy a one-year Compute Savings Plan for the instances.",
+  "Buy 40 one-year zonal Reserved Instances in us-east-1a for the event.",
+  "Request Spot Instances with a persistent request.",
+  "Create an On-Demand Capacity Reservation in us-east-1a, then cancel it.",
+]
+answer = ["D"]
+explain = { A = "A Savings Plan discounts usage but does not reserve any capacity.", B = "It guarantees capacity, but the one-year term commits the company to pay for 40 instances for a year, far beyond the event.", C = "Spot capacity can be interrupted or unavailable, so nothing is guaranteed.", D = "Correct. A Capacity Reservation reserves capacity in a specific AZ for any duration with no term, so it can be created now and cancelled when the event ends." }
+ref = "week_03_compute_and_scaling/concepts/02_purchasing_options.md"
+
+[[question]]
+id = "w03-q30"
+domain = 4
+task = "4.2"
+services = ["Amazon EC2 Auto Scaling", "AWS Graviton"]
+kind = "single"
+stem = """A development team runs 20 m7i.large Linux build instances in an Auto Scaling group. They sit idle from 8 p.m. to 7 a.m. and on weekends. The builds also run on Arm. The company wants to cut this fleet's cost as far as possible without hurting daytime work. Which approach is the MOST cost-effective?"""
+options = [
+  "Move the group to m7g.large instances and keep all of them running around the clock.",
+  "Move to m7g.large instances and scale the group to zero when idle on a schedule.",
+  "Buy three-year Standard Reserved Instances for the 20 m7i.large instances.",
+  "Move the group to 10 m7i.xlarge instances and keep it running around the clock.",
+]
+answer = ["B"]
+explain = { A = "It lowers the hourly rate, but the fleet still pays for the idle nights and weekends.", B = "Correct. Graviton instances cost less than comparable x86 ones, and scaling to zero while the fleet is idle removes the largest share of the bill.", C = "A three-year commitment discounts the instances but still pays for them around the clock, idle or not.", D = "Two m7i.large equal one m7i.xlarge in capacity, so this changes nothing and still runs all the time." }
+ref = "week_03_compute_and_scaling/concepts/02_purchasing_options.md"

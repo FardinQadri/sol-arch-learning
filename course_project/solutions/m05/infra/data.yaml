@@ -1,0 +1,130 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: shortly-infra M05 - data tier (PostgreSQL on RDS, a Valkey cache, the DynamoDB click counts)
+
+Parameters:
+  Prefix:
+    Type: String
+    Default: shortly
+    AllowedPattern: '[a-z][a-z0-9-]{1,20}'
+  Env:
+    Type: String
+    AllowedValues: [lab, prod]
+
+Conditions:
+  IsProd: !Equals [!Ref Env, prod]
+
+Resources:
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Data subnets for the Shortly database (no route to the internet)
+      SubnetIds: !Split [',', !ImportValue {'Fn::Sub': '${Prefix}-data-subnet-ids'}]
+      Tags:
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      Engine: postgres
+      EngineVersion: '17.9'
+      DBInstanceClass: !If [IsProd, db.m7g.large, db.t4g.micro]
+      AllocatedStorage: 20
+      StorageType: gp3
+      Port: 5432
+      StorageEncrypted: true
+      MasterUsername: shortly
+      ManageMasterUserPassword: true
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups:
+        - !ImportValue {'Fn::Sub': '${Prefix}-db-sg-id'}
+      PubliclyAccessible: false
+      MultiAZ: !If [IsProd, true, false]
+      BackupRetentionPeriod: !If [IsProd, 7, 1]
+      DeletionProtection: !If [IsProd, true, false]
+      CopyTagsToSnapshot: true
+      Tags:
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+
+  AppDbSecretPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub '${Prefix}-app-db-secret'
+      Roles: [!Sub '${Prefix}-app']
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ReadManagedDbSecret
+            Effect: Allow
+            Action: secretsmanager:GetSecretValue
+            Resource: !GetAtt Database.MasterUserSecret.SecretArn
+
+  CacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Data subnets for the Shortly cache
+      SubnetIds: !Split [',', !ImportValue {'Fn::Sub': '${Prefix}-data-subnet-ids'}]
+
+  Cache:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      ReplicationGroupDescription: !Sub '${Prefix} redirect cache'
+      Engine: valkey
+      CacheNodeType: !If [IsProd, cache.m7g.large, cache.t4g.micro]
+      NumCacheClusters: !If [IsProd, 2, 1]
+      AutomaticFailoverEnabled: !If [IsProd, true, false]
+      MultiAZEnabled: !If [IsProd, true, false]
+      TransitEncryptionEnabled: true
+      AtRestEncryptionEnabled: true
+      CacheSubnetGroupName: !Ref CacheSubnetGroup
+      SecurityGroupIds:
+        - !ImportValue {'Fn::Sub': '${Prefix}-cache-sg-id'}
+      Tags:
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+
+  ClicksTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub '${Prefix}-clicks-daily'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: code, AttributeType: S}
+        - {AttributeName: day, AttributeType: S}
+      KeySchema:
+        - {AttributeName: code, KeyType: HASH}
+        - {AttributeName: day, KeyType: RANGE}
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      DeletionProtectionEnabled: !If [IsProd, true, false]
+      Tags:
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+
+Outputs:
+  DbEndpointAddress:
+    Value: !GetAtt Database.Endpoint.Address
+    Export: {Name: !Sub '${Prefix}-db-endpoint'}
+  DbPort:
+    Value: !GetAtt Database.Endpoint.Port
+    Export: {Name: !Sub '${Prefix}-db-port'}
+  DbSecretArn:
+    Value: !GetAtt Database.MasterUserSecret.SecretArn
+    Export: {Name: !Sub '${Prefix}-db-secret-arn'}
+  CacheEndpoint:
+    Value: !GetAtt Cache.PrimaryEndPoint.Address
+    Export: {Name: !Sub '${Prefix}-cache-endpoint'}
+  ClicksTableName:
+    Value: !Ref ClicksTable
+    Export: {Name: !Sub '${Prefix}-clicks-table'}
+  ClicksTableArn:
+    Value: !GetAtt ClicksTable.Arn
+    Export: {Name: !Sub '${Prefix}-clicks-table-arn'}

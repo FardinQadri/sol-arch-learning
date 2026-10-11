@@ -1,0 +1,515 @@
+[[question]]
+id = "w01-q01"
+domain = 1
+task = "1.1"
+services = ["IAM", "Amazon S3"]
+kind = "single"
+stem = """A company stores build artifacts in an S3 bucket. A developer role has an identity policy that allows s3:* on the bucket and its objects. The bucket policy contains a statement that denies s3:DeleteObject to every principal except the release-manager role. When the developer role tries to delete an artifact, the request fails with AccessDenied. Which statement explains the result?"""
+options = [
+  "The identity policy and the bucket policy conflict, so AWS falls back to the more specific of the two statements and ignores the broader Allow.",
+  "The bucket policy's explicit Deny matches the request, and an explicit Deny overrides every Allow, including the identity policy's s3:*.",
+  "The identity policy cannot grant access to an S3 bucket unless the bucket policy also contains an Allow for the same role.",
+  "The developer role needs a permissions boundary that lists s3:DeleteObject before an identity policy Allow can take effect.",
+]
+answer = ["B"]
+explain = { A = "AWS does not rank statements by specificity. Any matching Deny wins regardless of how broad the Allow is.", B = "Correct. Evaluation looks for a matching Deny first. The bucket policy's Deny matches s3:DeleteObject for this principal, so nothing else is consulted.", C = "Within one account an identity policy Allow is enough when nothing denies. The failure comes from the Deny, not from a missing bucket Allow.", D = "A permissions boundary is optional and only limits; its absence does not block an identity policy. The request is blocked by the Deny." }
+ref = "week_01_iam_and_governance/concepts/02_policy_evaluation.md"
+
+[[question]]
+id = "w01-q02"
+domain = 1
+task = "1.1"
+services = ["IAM"]
+kind = "single"
+stem = """A new analyst role in a single AWS account has one attached policy that allows ec2:Describe* on all resources. The analyst calls s3:ListAllMyBuckets and receives AccessDenied. The account has no organization, no permissions boundary and no Deny statement in any policy. The security team wants to fix this with the LEAST privilege. What should the architect do?"""
+options = [
+  "Attach the AdministratorAccess managed policy to the role.",
+  "Search for the Deny statement that is blocking the call and delete it.",
+  "Add an Allow for s3:ListAllMyBuckets to a bucket policy on each bucket in the account.",
+  "Add a statement to the role's identity policy that allows only s3:ListAllMyBuckets.",
+]
+answer = ["D"]
+explain = { A = "This would work but grants every permission in the account, which is the opposite of least privilege.", B = "There is no Deny in the account, as the scenario states. The failure is an implicit deny, so deleting statements changes nothing.", C = "Listing buckets is an account-level action, not an action on one bucket, so a bucket policy cannot allow it.", D = "Correct. Nothing allows the action, so it is an implicit deny. A narrow identity-policy Allow for exactly that action fixes it." }
+ref = "week_01_iam_and_governance/concepts/02_policy_evaluation.md"
+
+[[question]]
+id = "w01-q03"
+domain = 1
+task = "1.1"
+services = ["AWS Organizations", "IAM"]
+kind = "single"
+stem = """A company wants to stop every member account from using any Region other than eu-west-1 and eu-central-1. IAM, AWS STS and other global services must keep working, because their endpoints are not in those two Regions. The company uses a deny-list strategy with FullAWSAccess still attached. Which service control policy meets the requirement?"""
+options = [
+  "A Deny statement that uses NotAction to exempt the global services and has a StringNotEquals condition on aws:RequestedRegion listing the two approved Regions.",
+  "A Deny statement for Action * with a StringNotEquals condition on aws:RequestedRegion listing the two approved Regions, attached to the organization root.",
+  "An Allow statement for Action * with a StringEquals condition on aws:RequestedRegion listing the two approved Regions.",
+  "A Deny statement for ec2:* only, with a StringNotEquals condition on aws:RequestedRegion listing the two approved Regions.",
+]
+answer = ["A"]
+explain = { A = "Correct. The Deny blocks everything outside the approved Regions, and NotAction leaves out the global services so they keep working.", B = "Denying every action also catches the global services whose calls resolve outside the approved Regions, so sign-in and role assumption would break.", C = "An SCP Allow never denies anything. FullAWSAccess is still attached, so every Region would stay usable.", D = "This blocks only EC2 outside the Regions. Every other service could still be used anywhere." }
+ref = "week_01_iam_and_governance/concepts/02_policy_evaluation.md"
+
+[[question]]
+id = "w01-q04"
+domain = 1
+task = "1.1"
+services = ["Amazon SQS", "IAM"]
+kind = "single"
+stem = """A healthcare company has an Amazon SQS queue that receives patient events from several accounts. A compliance rule says no request to the queue may travel over an unencrypted connection. The queue is already encrypted at rest. Which change enforces the rule MOST reliably?"""
+options = [
+  "Add an Allow statement to the queue policy with a Bool condition where aws:SecureTransport is true, and leave the other statements in place.",
+  "Add a Deny statement to the queue policy for all principals with a Bool condition where aws:SecureTransport is true.",
+  "Add a Deny statement to the queue policy for all principals with a Bool condition where aws:SecureTransport is false.",
+  "Switch the queue from the SQS-managed key to a customer managed KMS key.",
+]
+answer = ["C"]
+explain = { A = "An extra Allow does not close anything. Existing Allow statements still permit plain HTTP requests, because an Allow only adds access.", B = "The condition is inverted. This would deny the encrypted requests and leave the plain HTTP ones.", C = "Correct. A Deny on aws:SecureTransport false rejects every plain HTTP request, and a Deny cannot be bypassed by another Allow.", D = "A key change protects data at rest. It does not force clients to use TLS in transit." }
+ref = "week_01_iam_and_governance/concepts/02_policy_evaluation.md"
+
+[[question]]
+id = "w01-q05"
+domain = 1
+task = "1.1"
+services = ["Amazon S3", "Amazon VPC", "IAM"]
+kind = "single"
+stem = """A bucket policy denies all access unless aws:SourceIp is within the corporate range 203.0.113.0/24. EC2 workloads in a private subnet now read from this bucket through an S3 gateway endpoint, and every request fails with AccessDenied. Only these workloads read the bucket now; the corporate range no longer needs access. Security requires that this traffic stays on the AWS network and never goes over the internet. Which change fixes the access MOST securely?"""
+options = [
+  "Add the public IP addresses of the EC2 instances to the aws:SourceIp list.",
+  "Change the bucket policy so the Deny applies unless aws:SourceVpce matches the gateway endpoint's ID.",
+  "Remove the gateway endpoint and route the subnet through a NAT gateway whose Elastic IP is in the allowed range.",
+  "Add the VPC CIDR block, 10.0.0.0/16, to the aws:SourceIp list in the bucket policy.",
+]
+answer = ["B"]
+explain = { A = "Traffic through the gateway endpoint does not use the instances' public addresses, and the instances may not even have any.", B = "Correct. Requests through a VPC endpoint are identified by the endpoint, not by a public source IP. Tying the policy to aws:SourceVpce keeps the traffic private and the restriction tight.", C = "This would pass the IP check, but the traffic would then leave through the internet path, which the company has ruled out.", D = "aws:SourceIp is not evaluated against private addresses for requests that arrive through a VPC endpoint, so a private CIDR never matches." }
+ref = "week_01_iam_and_governance/concepts/02_policy_evaluation.md"
+
+[[question]]
+id = "w01-q06"
+domain = 1
+task = "1.1"
+services = ["IAM", "Amazon EC2"]
+kind = "single"
+stem = """An IAM policy allows ec2:RunInstances with the condition ForAllValues:StringEquals on aws:TagKeys, listing the keys project and owner. The intent is that engineers may launch instances only with those two tags. An audit finds engineers launching instances with no tags at all. Which change closes the gap while still allowing only those two keys?"""
+options = [
+  "Keep the ForAllValues condition and add a Null condition on aws:TagKeys in the same statement.",
+  "Change the operator to ForAnyValue:StringEquals, keep the same two listed keys, and leave the rest of the statement as it is.",
+  "Change StringEquals to StringEqualsIgnoreCase and keep the same two listed keys.",
+  "Add a Deny statement for ec2:RunInstances when aws:SecureTransport is false.",
+]
+answer = ["A"]
+explain = { A = "Correct. ForAllValues is true when the request has no values for the key, so untagged launches pass. The Null check forces the key to exist.", B = "A single listed key would then be enough, so a request could carry the listed key plus any other key. The two-key limit is lost.", C = "This only affects letter case. An empty set of tag keys still satisfies ForAllValues.", D = "TLS enforcement is unrelated to the tags. Untagged launches would still succeed." }
+ref = "week_01_iam_and_governance/concepts/02_policy_evaluation.md"
+
+[[question]]
+id = "w01-q07"
+domain = 1
+task = "1.1"
+services = ["Amazon EC2", "IAM"]
+kind = "single"
+stem = """A batch processing application runs on EC2 instances in an Auto Scaling group. It reads from Amazon S3 and writes to Amazon SQS using the access keys of an IAM user. The keys are baked into the AMI, and a security review has flagged this. The company wants no long-lived credentials on the instances and the smallest change to the application code. What should the architect do?"""
+options = [
+  "Move the access keys into AWS Secrets Manager and have the application fetch them at startup.",
+  "Encrypt the configuration file that holds the keys with a customer managed KMS key.",
+  "Attach a least-privilege IAM role through an instance profile in the launch template, and delete the user's keys.",
+  "Rotate the IAM user's access keys every 30 days with a scheduled Lambda function and publish the new AMI each time.",
+]
+answer = ["C"]
+explain = { A = "The instances would still need credentials to call Secrets Manager, and the keys remain long-lived secrets.", B = "Encryption protects the file at rest, but the application still holds permanent keys that can leak once decrypted.", C = "Correct. Instances get short-lived credentials from the role through the instance metadata service, and the SDK picks them up without code changes.", D = "Rotation shortens the exposure window but keeps long-lived keys and adds an AMI release process to maintain." }
+ref = "week_01_iam_and_governance/concepts/03_roles_sts_and_federation.md"
+
+[[question]]
+id = "w01-q08"
+domain = 1
+task = "1.1"
+services = ["AWS STS", "IAM"]
+kind = "single"
+stem = """An engineer runs a Python script from a workstation once a month to pull reports from a production account. The script uses the permanent access keys of an IAM user in that account. The company already uses IAM Identity Center for its workforce and wants the script to use temporary credentials, with the LEAST operational overhead and no new long-lived keys. What should the architect recommend?"""
+options = [
+  "Create a second IAM user for the script and rotate its access keys each month.",
+  "Call sts:GetSessionToken with the existing IAM user's permanent keys and store the result in the script.",
+  "Create access keys for the root user of the production account and restrict their use to the office IP range, with a note in the runbook.",
+  "Have the engineer sign in with IAM Identity Center and run the script with that profile's temporary credentials.",
+]
+answer = ["D"]
+explain = { A = "A second user still has long-lived keys, plus a rotation chore.", B = "The call still requires the permanent keys to run, and a stored result would be a short-lived secret that must be refreshed by hand.", C = "Root access keys are the most dangerous credential an account has, and an IP condition does not make them temporary.", D = "Correct. No keys are stored anywhere: the engineer signs in with the corporate identity and gets short-lived credentials through a permission set. Identity Center is already in place, so this adds the least overhead." }
+ref = "week_01_iam_and_governance/concepts/03_roles_sts_and_federation.md"
+
+[[question]]
+id = "w01-q09"
+domain = 1
+task = "1.1"
+services = ["Amazon S3", "IAM"]
+kind = "single"
+stem = """A data team in account A owns a bucket of curated datasets. An administrator adds a bucket policy statement that allows s3:GetObject to the account ID of account B. An application role in account B still receives AccessDenied when it reads an object. The role has no S3 permissions today. What is the MOST appropriate fix?"""
+options = [
+  "Add the application role to the object ACLs of every dataset in the bucket.",
+  "Attach an identity policy to the role in account B that allows s3:GetObject on the bucket's objects.",
+  "Attach a service control policy to account B that allows s3:GetObject.",
+  "Add the same Allow statement to account A's bucket policy again, this time naming account A as the principal.",
+]
+answer = ["B"]
+explain = { A = "ACLs are disabled on new buckets by default and would not satisfy the missing identity-side permission.", B = "Correct. For cross-account access both sides must allow: the bucket policy in A, and an identity policy in B that gives the role the permission.", C = "An SCP only sets a ceiling and never grants permissions, so it cannot supply the missing Allow.", D = "Account A already trusts account B. The missing piece is on the caller's side, and naming account A changes nothing for the role in B." }
+ref = "week_01_iam_and_governance/concepts/02_policy_evaluation.md"
+
+[[question]]
+id = "w01-q10"
+domain = 1
+task = "1.1"
+services = ["IAM", "AWS STS"]
+kind = "single"
+stem = """A company hires a SaaS vendor that analyses its cost data. The vendor assumes a role in the company's account. The vendor serves many customers, and the company worries that another customer of the vendor could trick it into using the company's role ARN. Which control addresses this risk?"""
+options = [
+  "Add an sts:ExternalId condition to the role's trust policy, with a unique value the vendor sends.",
+  "Require aws:MultiFactorAuthPresent in the role's trust policy for every assume call from the vendor.",
+  "Restrict the trust policy to the vendor's AWS account ID as the only principal.",
+  "Replace the role with an IAM user for the vendor and share its access keys through the vendor's support portal.",
+]
+answer = ["A"]
+explain = { A = "Correct. The external ID is a value only this customer and the vendor know, so a different customer cannot get the vendor to use this role.", B = "An automated service cannot supply an MFA code, and MFA does not tell which of the vendor's customers made the request.", C = "The vendor's account is already trusted. The confused deputy problem exists because the vendor itself is trusted by many customers.", D = "This creates long-lived keys that must be shared and rotated, and it removes the temporary-credential model." }
+ref = "week_01_iam_and_governance/concepts/03_roles_sts_and_federation.md"
+
+[[question]]
+id = "w01-q11"
+domain = 1
+task = "1.1"
+services = ["IAM", "AWS Lambda"]
+kind = "single"
+stem = """Developers may create AWS Lambda functions, and each function needs an execution role. Security fears that a developer could create a function and attach an existing administrator role to it. The company wants developers to create functions without escalating privileges, using the LEAST privilege. What should the architect configure?"""
+options = [
+  "Deny iam:CreateRole to developers and keep the existing roles unchanged.",
+  "Grant iam:PassRole on all roles, with an iam:PassedToService condition for Lambda.",
+  "Attach a permissions boundary to the developers' IAM users that allows only lambda:* and iam:PassRole actions, and review it quarterly.",
+  "Grant iam:PassRole only on the ARNs of approved execution roles, with an iam:PassedToService condition for Lambda.",
+]
+answer = ["D"]
+explain = { A = "Developers could still pass an administrator role that already exists. Blocking CreateRole does not stop passing.", B = "That is exactly the escalation path described. PassRole on every role lets a developer pass the administrator role.", C = "A boundary like this limits what the developers can do themselves, and leaves out the IAM permissions that the deployment also needs. It does not restrict which role they hand to the function.", D = "Correct. PassRole controls which roles a caller may hand to a service. Listing only approved roles and one service prevents attaching an admin role." }
+ref = "week_01_iam_and_governance/concepts/03_roles_sts_and_federation.md"
+
+[[question]]
+id = "w01-q12"
+domain = 1
+task = "1.1"
+services = ["IAM Identity Center", "AWS Organizations"]
+kind = "single"
+stem = """A company with 200 employees runs 25 AWS accounts in one organization. Employees already sign in to Microsoft Entra ID for all company applications. The company wants staff to reach AWS accounts using their existing corporate sign-in, with short-lived credentials and the LEAST operational overhead. What should the architect do?"""
+options = [
+  "Create an IAM user for each employee in each account they use and require a password policy.",
+  "Create a SAML provider for Entra ID and a set of roles by hand in each of the 25 accounts, with the same trust policy in each.",
+  "Enable IAM Identity Center, connect it to Entra ID, and assign groups to accounts through permission sets.",
+  "Create an Amazon Cognito user pool, import the employees, and give each account's console a login link.",
+]
+answer = ["C"]
+explain = { A = "This creates thousands of long-lived identities to manage and rotate, which is the highest overhead.", B = "It would work, but each account needs its own provider and roles, so the work is repeated 25 times and drifts over time.", C = "Correct. Identity Center is the central place for workforce access across accounts and supports short-lived credentials.", D = "Cognito is for an application's customers, not for staff access to AWS accounts." }
+ref = "week_01_iam_and_governance/concepts/03_roles_sts_and_federation.md"
+
+[[question]]
+id = "w01-q13"
+domain = 1
+task = "1.1"
+services = ["IAM", "AWS STS"]
+kind = "single"
+stem = """A company runs AD FS on premises and wants its 40 engineers to sign in to a single AWS account with their corporate credentials. The account stands alone and will not join an organization. The company does not want any IAM users. Which approach meets these requirements?"""
+options = [
+  "Create an IAM user for each engineer and synchronise the passwords from Active Directory with a script.",
+  "Create an IAM SAML provider from the AD FS metadata and roles that trust it, mapped to AD groups.",
+  "Deploy AD Connector and use it as the sign-in method for the AWS Management Console of the account.",
+  "Create an Amazon Cognito identity pool and register the engineers as unauthenticated identities.",
+]
+answer = ["B"]
+explain = { A = "This is exactly what the company wants to avoid, and copying passwords adds a security risk.", B = "Correct. SAML federation exchanges the AD FS assertion for temporary role credentials, so no IAM users are needed.", C = "AD Connector is a directory proxy used by services such as Identity Center or WorkSpaces. It does not by itself sign people in to the IAM console.", D = "Identity pools serve application users, and unauthenticated identities give no way to tell engineers apart." }
+ref = "week_01_iam_and_governance/concepts/03_roles_sts_and_federation.md"
+
+[[question]]
+id = "w01-q14"
+domain = 1
+task = "1.1"
+services = ["IAM", "AWS STS"]
+kind = "single"
+stem = """A company's CI system issues a signed OpenID Connect token to each pipeline run. The pipelines deploy CloudFormation stacks into one AWS account, and today they use an IAM user's access keys stored as CI secrets. Security wants no long-lived keys anywhere and wants only the main branch of one repository to be able to deploy. What should the architect configure?"""
+options = [
+  "Create an IAM OIDC provider for the CI system and a role whose trust policy matches repository and branch claims.",
+  "Keep the IAM user but rotate its access keys each week with a Lambda function that updates the CI secrets.",
+  "Store the access keys in the CI system's encrypted secret store and restrict who can edit the pipeline.",
+  "Create a role that trusts the CI vendor's AWS account and share the role ARN with every repository.",
+]
+answer = ["A"]
+explain = { A = "Correct. The pipeline trades its OIDC token for temporary role credentials. The trust conditions limit the role to one repository and branch.", B = "Rotation reduces the window but the keys are still long-lived and still live in the CI system.", C = "Encryption at rest protects the stored secret, but the key is still permanent and can be misused by anyone who can run a pipeline.", D = "Trusting the vendor's whole account lets any of its customers' jobs try the role, and it does not limit to one repository and branch." }
+ref = "week_01_iam_and_governance/concepts/03_roles_sts_and_federation.md"
+
+[[question]]
+id = "w01-q15"
+domain = 1
+task = "1.1"
+services = ["AWS Directory Service", "Amazon RDS"]
+kind = "single"
+stem = """A company runs Active Directory on premises and is moving Windows EC2 workloads and an RDS for SQL Server database to AWS. These workloads need Windows authentication against a directory that keeps working if the link to the data center is down. The team wants the LEAST operational overhead. Which solution meets these requirements?"""
+options = [
+  "Create AD Connector that forwards requests to the on-premises domain controllers.",
+  "Create Simple AD and recreate the user accounts by hand.",
+  "Launch domain controllers on EC2 instances in two Availability Zones and manage the replication yourself.",
+  "Create AWS Managed Microsoft AD and set up a trust with the on-premises domain.",
+]
+answer = ["D"]
+explain = { A = "AD Connector stores nothing and forwards every request to the on-premises domain, so it fails when the link is down.", B = "Simple AD is a basic directory that does not support a trust with the on-premises Active Directory, so users would be duplicated.", C = "This would work but the team patches, backs up and monitors the domain controllers, which is the overhead it wants to avoid.", D = "Correct. A real Microsoft AD directory runs in AWS, serves the workloads on its own, and the trust lets on-premises users sign in." }
+ref = "week_01_iam_and_governance/concepts/03_roles_sts_and_federation.md"
+
+[[question]]
+id = "w01-q16"
+domain = 1
+task = "1.1"
+services = ["Amazon Cognito", "Amazon S3", "IAM"]
+kind = "multi"
+choose = 2
+stem = """A photo-sharing mobile app lets millions of users sign in with a social identity provider. Each user must upload photos directly to an S3 bucket, and only into their own prefix. The company does not want to create IAM users or ship any shared keys in the app. Which combination of steps meets these requirements? (Select TWO.)"""
+options = [
+  "Create one IAM user for the whole app and embed its access keys in the mobile app.",
+  "Use an Amazon Cognito identity pool to exchange the user's sign-in token for temporary AWS credentials.",
+  "Use IAM Identity Center permission sets and assign them to every app user.",
+  "Make the bucket publicly writable and rely on object names that are hard to guess.",
+  "Attach an IAM role to the authenticated identities whose policy scopes S3 access to a prefix built from the Cognito identity ID.",
+]
+answer = ["B", "E"]
+explain = { A = "Keys shipped in an app can be extracted, and they give every user the same access.", B = "Correct. An identity pool swaps the sign-in token for short-lived credentials, with no IAM users for app customers.", C = "Identity Center is for a company's workforce, not for the customers of an app.", D = "Public write access allows anyone to overwrite or fill the bucket, and secret-looking names are not access control.", E = "Correct. The role's policy variable for the identity ID limits each user to their own prefix, which gives least privilege." }
+ref = "week_01_iam_and_governance/concepts/03_roles_sts_and_federation.md"
+
+[[question]]
+id = "w01-q17"
+domain = 1
+task = "1.1"
+services = ["AWS Organizations"]
+kind = "single"
+stem = """A company wants to guarantee that nobody in any member account, including each account's root user, can create resources outside eu-west-1 and eu-central-1. The central IT team also runs a few administrator tasks from the management account and asks whether the guardrail will cover them. Which approach and statement are correct?"""
+options = [
+  "Attach an IAM permissions boundary to every user and role in each member account.",
+  "Attach a deny SCP with a Region condition at the root, and tell the team it covers the management account too.",
+  "Attach a deny SCP with a Region condition at the root, and tell the team the management account is not restricted by it.",
+  "Deploy an AWS Config rule that reports resources found outside the approved Regions.",
+]
+answer = ["C"]
+explain = { A = "Boundaries apply only to the users and roles they are attached to, so they do not cover each account's root user and an account admin could change them.", B = "The first half is right but the second is wrong: SCPs do not affect the management account at all.", C = "Correct. SCPs apply to all principals in member accounts, including root users, and they never apply to the management account.", D = "A Config rule detects after the fact. It does not prevent the resources from being created." }
+ref = "week_01_iam_and_governance/concepts/04_multi_account_and_organizations.md"
+
+[[question]]
+id = "w01-q18"
+domain = 1
+task = "1.1"
+services = ["AWS Organizations", "IAM"]
+kind = "single"
+stem = """An administrator attaches a service control policy that allows s3:* to the Analytics OU, with all features enabled in the organization. The analysts' roles in the accounts under that OU have no S3 permissions in their identity policies. Analysts still receive AccessDenied when they read data. What is the reason, and what is the fix?"""
+options = [
+  "An SCP grants nothing. Add the S3 permissions to the roles' identity policies.",
+  "The SCP must also be attached directly to each account in the OU before it takes effect.",
+  "Another SCP must be attached at the organization root that also allows s3:*.",
+  "The management account must enable trusted access for S3 in AWS Organizations first.",
+]
+answer = ["A"]
+explain = { A = "Correct. An SCP only sets a ceiling on what identity and resource policies can allow. The analysts still need an Allow granted through their own policies.", B = "An SCP attached to an OU already applies to every account beneath it, so extra attachment changes nothing.", C = "The default FullAWSAccess policy already allows everything at the root. A second Allow would not grant any permissions.", D = "Trusted access is about integrating services with Organizations, and it does not give anyone S3 permissions." }
+ref = "week_01_iam_and_governance/concepts/04_multi_account_and_organizations.md"
+
+[[question]]
+id = "w01-q19"
+domain = 1
+task = "1.1"
+services = ["AWS Organizations"]
+kind = "single"
+stem = """A company is growing from 3 to 20 workload accounts. Production accounts must be barred from disabling CloudTrail, while developers in the development accounts need freedom to experiment with most services. New accounts should receive the correct guardrails automatically, with as little repeated work as possible. What should the architect do?"""
+options = [
+  "Attach a different set of SCPs directly to each account and copy the policy documents when an account is added.",
+  "Create Development and Production OUs, attach SCPs to each, and place the accounts in them.",
+  "Create a tag policy that requires an environment tag and rely on it to block the CloudTrail actions in production.",
+  "Create a second AWS organization for production and attach its own SCPs there.",
+]
+answer = ["B"]
+explain = { A = "Per-account attachments multiply the work and drift as accounts are added.", B = "Correct. A policy attached to an OU is inherited by every account placed under it, so new accounts get the right guardrails by being placed in the OU.", C = "Tag policies standardise tag keys and values. They do not allow or deny API actions.", D = "A second organization splits billing and management, and adds work without being needed for different guardrails." }
+ref = "week_01_iam_and_governance/concepts/04_multi_account_and_organizations.md"
+
+[[question]]
+id = "w01-q20"
+domain = 1
+task = "1.1"
+services = ["AWS Control Tower", "AWS Organizations"]
+kind = "single"
+stem = """A new company is starting its AWS journey and needs a multi-account environment with a log archive account, an audit account, centralized logging, a standard way to create new accounts and preventive guardrails. The company has no platform team and wants the LEAST operational overhead. Which solution meets these requirements?"""
+options = [
+  "Build the organization by hand with AWS Organizations, then script accounts and guardrails with CloudFormation StackSets.",
+  "Enable IAM Identity Center in a single account and create all teams as permission sets.",
+  "Deploy an AWS Config conformance pack in one account and rely on it to separate the teams.",
+  "Set up AWS Control Tower to create a landing zone with Account Factory and controls.",
+]
+answer = ["D"]
+explain = { A = "This reaches a similar end state, but the team writes and maintains the baseline itself.", B = "Identity Center gives sign-in and permissions. It does not create separate accounts, logging or guardrails.", C = "Conformance packs detect configuration drift in one account and do not create a multi-account structure.", D = "Correct. Control Tower builds and governs the landing zone, including logging accounts, Account Factory and controls, with the least effort." }
+ref = "week_01_iam_and_governance/concepts/04_multi_account_and_organizations.md"
+
+[[question]]
+id = "w01-q21"
+domain = 1
+task = "1.1"
+services = ["AWS RAM", "Amazon VPC", "AWS Organizations"]
+kind = "single"
+stem = """A central network account owns a VPC with private subnets and a NAT gateway. Twenty workload accounts in the same organization must launch EC2 instances into those same subnets, without each account building its own network. The company wants the LEAST operational overhead and cost. Which solution meets these requirements?"""
+options = [
+  "Create a VPC in each workload account and peer every one of them with the central VPC.",
+  "Create a VPC and a NAT gateway in each workload account and route traffic through them.",
+  "Use AWS Resource Access Manager to share the subnets with the organization.",
+  "Attach each workload account's VPC to a Transit Gateway that routes to the central network account.",
+]
+answer = ["C"]
+explain = { A = "Peering creates 20 connections to manage, and the instances would not be in the shared subnets.", B = "Twenty NAT gateways are the duplicated cost and effort the company wants to avoid.", C = "Correct. RAM shares the subnets, so the workload accounts launch resources directly into them and reuse the central NAT gateway.", D = "This connects separate VPCs at a charge per attachment and per GB processed. The accounts would still not share the subnets." }
+ref = "week_01_iam_and_governance/concepts/04_multi_account_and_organizations.md"
+
+[[question]]
+id = "w01-q22"
+domain = 1
+task = "1.1"
+services = ["Amazon S3", "AWS Organizations"]
+kind = "single"
+stem = """A shared-services account holds a bucket of reference data. Every account in the company's organization, including accounts added in the future, must be able to read the objects. The company wants the LEAST operational overhead and no public access. What should the architect configure?"""
+options = [
+  "Allow s3:GetObject in the bucket policy with a StringEquals condition on aws:PrincipalOrgID.",
+  "List every member account ID as a principal in the bucket policy and update the list whenever an account is created.",
+  "Create an IAM user in the shared-services account for each member account and share the keys.",
+  "Make the bucket public and add a bucket policy condition that checks the HTTP Referer header.",
+]
+answer = ["A"]
+explain = { A = "Correct. The condition covers every principal in the organization, now and later, without maintaining a list.", B = "This works, but the policy needs editing for every new account, which is the overhead the company wants to avoid.", C = "This creates long-lived keys and a growing set of users to manage.", D = "A public bucket exposes the data to everyone, and the Referer header can be forged." }
+ref = "week_01_iam_and_governance/concepts/04_multi_account_and_organizations.md"
+
+[[question]]
+id = "w01-q23"
+domain = 1
+task = "1.2"
+services = ["IAM"]
+kind = "single"
+stem = """A platform team wants application developers to create their own IAM roles for the functions they deploy. The team must make sure no developer can create a role more powerful than the permissions that team allows. The solution must stay effective as developers attach new policies. What should the architect do?"""
+options = [
+  "Attach the permissions boundary to the developers' own IAM users.",
+  "Allow role creation and policy attachment only when the request sets a permissions boundary, and deny removing that boundary.",
+  "Give developers iam:CreateRole and iam:AttachRolePolicy on all resources and review the roles every month.",
+  "Require developers to open a ticket, and have the security team create every role by hand.",
+]
+answer = ["B"]
+explain = { A = "This limits the developers themselves, not the roles they create, so a created role could still exceed it.", B = "Correct. Every role a developer creates is capped by the boundary, whatever policies are attached later.", C = "Without a boundary a developer can create an administrator role between reviews.", D = "This is secure but removes the delegation entirely, and the security team becomes a bottleneck." }
+ref = "week_01_iam_and_governance/concepts/05_least_privilege_and_access_tools.md"
+
+[[question]]
+id = "w01-q24"
+domain = 1
+task = "1.2"
+services = ["IAM Access Analyzer"]
+kind = "single"
+stem = """A security team needs a list of every S3 bucket, KMS key and IAM role in its organization that can be accessed from outside the organization. It wants a managed check that reports these findings continuously, with the LEAST operational overhead. What should the team use?"""
+options = [
+  "The IAM credential report, which lists the state of every IAM user in each account.",
+  "The IAM policy simulator, run against each resource in turn.",
+  "The last accessed information for each role in the IAM console.",
+  "An IAM Access Analyzer external access analyzer for the organization.",
+]
+answer = ["D"]
+explain = { A = "The credential report covers users, passwords and keys. It does not show resource sharing.", B = "The simulator tests one identity's permissions on request. It does not scan resources for external access.", C = "Last accessed data shows which services a principal used. It says nothing about who outside can reach a resource.", D = "Correct. The external access analyzer finds resources shared outside the chosen zone of trust and keeps reporting new findings." }
+ref = "week_01_iam_and_governance/concepts/05_least_privilege_and_access_tools.md"
+
+[[question]]
+id = "w01-q25"
+domain = 1
+task = "1.2"
+services = ["IAM Access Analyzer", "AWS CloudTrail"]
+kind = "single"
+stem = """An application's role has carried a broad administrator policy for the past six months, and CloudTrail has recorded its API calls. The security team wants a replacement policy that contains only the actions the role really used, with the LEAST effort. What should the team do?"""
+options = [
+  "Read the application's source code and write the policy by hand from the API calls you find.",
+  "Replace the policy with the ReadOnlyAccess managed policy and add actions as errors appear.",
+  "Generate a policy with IAM Access Analyzer from the role's CloudTrail activity.",
+  "Run the IAM credential report and remove the actions it shows as unused.",
+]
+answer = ["C"]
+explain = { A = "This can work but is slow and error-prone, and it misses calls made indirectly by libraries.", B = "ReadOnlyAccess is broad, and it would also break any action the application writes.", C = "Correct. Policy generation reads the recorded activity and drafts a policy for exactly what was used.", D = "The credential report is about users, passwords and access keys. It has no per-action usage." }
+ref = "week_01_iam_and_governance/concepts/05_least_privilege_and_access_tools.md"
+
+[[question]]
+id = "w01-q26"
+domain = 1
+task = "1.2"
+services = ["IAM"]
+kind = "single"
+stem = """A finance company uses IAM users who sign in with long-term credentials to run operations in a production account. Security wants ec2:TerminateInstances to work only when the caller has authenticated with multi-factor authentication. Sessions started with long-lived keys have no MFA information at all. Which policy design enforces this?"""
+options = [
+  "A Deny for ec2:TerminateInstances with a BoolIfExists condition on aws:MultiFactorAuthPresent set to false.",
+  "A Deny statement for ec2:TerminateInstances with a Bool condition where aws:MultiFactorAuthPresent is true.",
+  "An Allow statement for ec2:TerminateInstances with a Bool condition where aws:SecureTransport is true.",
+  "A stronger account password policy that requires 20-character passwords with symbols.",
+]
+answer = ["A"]
+explain = { A = "Correct. BoolIfExists treats a missing key as a match, so sessions without MFA information are denied along with those that say false.", B = "The condition is inverted. It would deny the users who did use MFA.", C = "TLS says nothing about who authenticated with a second factor.", D = "A password policy raises password strength but cannot require a second factor for one action." }
+ref = "week_01_iam_and_governance/concepts/05_least_privilege_and_access_tools.md"
+
+[[question]]
+id = "w01-q27"
+domain = 1
+task = "1.2"
+services = ["IAM", "AWS Organizations"]
+kind = "multi"
+choose = 2
+stem = """A security audit of the management account of an organization finds that the root user has an active access key, no MFA device, and a password kept in a shared spreadsheet. The company wants to follow best practice for the root user. Which actions should the company take? (Select TWO.)"""
+options = [
+  "Delete the root user's access keys and use the root user only for tasks that need it.",
+  "Enable MFA on the root user, using a hardware token or a passkey.",
+  "Keep the root access key but rotate it every 90 days.",
+  "Attach a service control policy to the management account that denies all root user actions.",
+  "Share the root password with the whole operations team through the company password vault.",
+]
+answer = ["A", "B"]
+explain = { A = "Correct. Root access keys are never needed for daily work. Daily admin goes through an IAM Identity Center or IAM identity.", B = "Correct. A second factor on the root user is the key protection, and hardware tokens and passkeys resist phishing.", C = "Rotation does not remove the risk of a key that carries full account access.", D = "SCPs do not apply to the management account, so this policy would have no effect on its root user.", E = "Wide sharing multiplies the number of people who could misuse the most privileged credential." }
+ref = "week_01_iam_and_governance/concepts/05_least_privilege_and_access_tools.md"
+
+[[question]]
+id = "w01-q28"
+domain = 1
+task = "1.3"
+services = ["Amazon S3", "IAM"]
+kind = "single"
+stem = """A company keeps payment reconciliation files in an S3 bucket. Auditors discovered that some legacy scripts call the bucket over plain HTTP endpoints. The company must make sure every request to the bucket uses TLS, without changing the permissions of the existing roles. Which solution meets this requirement?"""
+options = [
+  "Set the bucket's default encryption to SSE-KMS with a customer managed key.",
+  "Add a bucket policy Deny for all principals when aws:SecureTransport is false.",
+  "Turn on S3 Block Public Access for the bucket.",
+  "Enable S3 Transfer Acceleration on the bucket.",
+]
+answer = ["B"]
+explain = { A = "Default encryption protects data at rest. Requests over HTTP would still be accepted.", B = "Correct. A Deny on plain HTTP rejects the legacy requests whatever Allow statements exist, and existing role permissions stay untouched.", C = "Block Public Access concerns public policies and ACLs. It has no effect on whether a request used TLS.", D = "Transfer Acceleration speeds up distant transfers and does not force the use of HTTPS." }
+ref = "week_01_iam_and_governance/concepts/02_policy_evaluation.md"
+
+[[question]]
+id = "w01-q29"
+domain = 4
+task = "4.1"
+services = ["AWS Organizations", "Amazon S3"]
+kind = "single"
+stem = """A company has five business-unit accounts, each billed separately and each storing about 40 TB in S3 Standard. S3 charges a lower price per GB as total volume grows. The finance team wants the MOST cost-effective result and would like to avoid changing the applications. What should the architect do?"""
+options = [
+  "Copy all of the data into one bucket in a single account and delete the other copies.",
+  "Buy a Savings Plan in each account to cover the S3 storage.",
+  "Join all five accounts to one AWS Organization and use its consolidated bill.",
+  "Enable S3 Intelligent-Tiering on every bucket in all five accounts.",
+]
+answer = ["C"]
+explain = { A = "This would also pool the volume, but it needs a full data migration, new cross-account access for each business unit and application changes, so it costs more effort and risk than consolidated billing for the same pricing result.", B = "Savings Plans apply to compute-type usage and not to S3 storage.", C = "Correct. Consolidated billing adds up usage across accounts so tiered prices apply to the combined total, with no data movement or application change.", D = "Intelligent-Tiering moves objects between access tiers by access pattern. It does not combine volume across accounts." }
+ref = "week_01_iam_and_governance/concepts/04_multi_account_and_organizations.md"
+
+[[question]]
+id = "w01-q30"
+domain = 1
+task = "1.1"
+services = ["IAM", "AWS STS", "Amazon S3"]
+kind = "multi"
+choose = 2
+stem = """A contractor works for a firm with its own AWS account and needs read access to one bucket in the company's account until the end of the quarter. The company will not create IAM users for outside people and wants access to stop on its own after the end date. Which steps meet these requirements? (Select TWO.)"""
+options = [
+  "Create a role in the company's account that trusts the contractor's account and allows s3:GetObject and s3:ListBucket only on that bucket.",
+  "Add a DateLessThan condition on aws:CurrentTime, set to the end of the quarter, to the role's trust policy.",
+  "Create an IAM user with access keys for the contractor and set a calendar reminder to delete it later.",
+  "Attach the AmazonS3ReadOnlyAccess managed policy to the role.",
+  "Make the bucket public for the duration and rely on the end date in the contract.",
+]
+answer = ["A", "B"]
+explain = { A = "Correct. The contractor's identities assume the role and receive temporary credentials. The policy limits them to one bucket.", B = "Correct. After the date, no new session can be started, so access ends without anyone having to remember. Sessions already issued run until they expire, and adding the same condition to the role's permissions policy is stricter.", C = "This is a long-lived credential for an outside person, and deletion depends on someone remembering.", D = "That managed policy covers every bucket in the account, which is far more than one bucket.", E = "Public access exposes the data to the world, not just to the contractor." }
+ref = "week_01_iam_and_governance/concepts/03_roles_sts_and_federation.md"

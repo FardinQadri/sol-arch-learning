@@ -1,0 +1,33 @@
+"""Wrong versions of the M05 snapshot — exact text edits applied to a copy of course_project/solutions/m05."""
+DATA = "infra/data.yaml"
+README = "README.md"
+MUTANTS = [
+    {"id": "public-db", "edits": {DATA: [["PubliclyAccessible: false", "PubliclyAccessible: true"]]}},
+    {"id": "plaintext-password", "edits": {DATA: [["      ManageMasterUserPassword: true\n", "      MasterUserPassword: hunter2-hunter2\n"]]}},
+    {"id": "both-passwords", "edits": {DATA: [["      ManageMasterUserPassword: true\n", "      ManageMasterUserPassword: true\n      MasterUserPassword: hunter2-hunter2\n"]]}},
+    {"id": "unencrypted-db", "edits": {DATA: [["      StorageEncrypted: true\n", "      StorageEncrypted: false\n"]]}},
+    {"id": "default-security-group", "edits": {DATA: [["      VPCSecurityGroups:\n        - !ImportValue {'Fn::Sub': '${Prefix}-db-sg-id'}\n", "      VPCSecurityGroups:\n        - !ImportValue {'Fn::Sub': '${Prefix}-app-sg-id'}\n"]]}},
+    {"id": "single-az-prod", "edits": {DATA: [["MultiAZ: !If [IsProd, true, false]", "MultiAZ: false"]]}},
+    {"id": "no-backups", "edits": {DATA: [["BackupRetentionPeriod: !If [IsProd, 7, 1]", "BackupRetentionPeriod: 0"]]}},
+    {"id": "no-lab-backups", "edits": {DATA: [["BackupRetentionPeriod: !If [IsProd, 7, 1]", "BackupRetentionPeriod: !If [IsProd, 7, 0]"]]}},
+    {"id": "short-prod-backups", "edits": {DATA: [["BackupRetentionPeriod: !If [IsProd, 7, 1]", "BackupRetentionPeriod: !If [IsProd, 3, 1]"]]}},
+    {"id": "unprotected-prod", "edits": {DATA: [["      DeletionProtection: !If [IsProd, true, false]\n", "      DeletionProtection: false\n"]]}},
+    {"id": "no-snapshot-on-delete", "edits": {DATA: [["    DeletionPolicy: Snapshot\n", ""]]}},
+    {"id": "no-snapshot-on-replace", "edits": {DATA: [["    UpdateReplacePolicy: Snapshot\n", ""]]}},
+    {"id": "tags-not-copied", "edits": {DATA: [["      CopyTagsToSnapshot: true\n", ""]]}},
+    {"id": "any-secret", "edits": {DATA: [["            Resource: !GetAtt Database.MasterUserSecret.SecretArn", "            Resource: '*'"]]}},
+    {"id": "secret-admin", "edits": {DATA: [["            Action: secretsmanager:GetSecretValue", "            Action: 'secretsmanager:*'"]]}},
+    {"id": "policy-on-wrong-role", "edits": {DATA: [["      Roles: [!Sub '${Prefix}-app']", "      Roles: [!Sub '${Prefix}-click-consumer']"]]}},
+    {"id": "redis-no-tls", "edits": {DATA: [["      TransitEncryptionEnabled: true\n", "      TransitEncryptionEnabled: false\n"]]}},
+    {"id": "cache-unencrypted-at-rest", "edits": {DATA: [["      AtRestEncryptionEnabled: true\n", "      AtRestEncryptionEnabled: false\n"]]}},
+    {"id": "failover-without-replica", "edits": {DATA: [["NumCacheClusters: !If [IsProd, 2, 1]", "NumCacheClusters: 1"]]}},
+    {"id": "no-prod-failover", "edits": {DATA: [["      AutomaticFailoverEnabled: !If [IsProd, true, false]\n", "      AutomaticFailoverEnabled: false\n"]]}},
+    {"id": "cache-in-wrong-group", "edits": {DATA: [["        - !ImportValue {'Fn::Sub': '${Prefix}-cache-sg-id'}", "        - !ImportValue {'Fn::Sub': '${Prefix}-db-sg-id'}"]]}},
+    {"id": "provisioned-clicks", "edits": {DATA: [["      BillingMode: PAY_PER_REQUEST\n", "      BillingMode: PROVISIONED\n      ProvisionedThroughput: {ReadCapacityUnits: 5, WriteCapacityUnits: 5}\n"]]}},
+    {"id": "no-pitr", "edits": {DATA: [["      PointInTimeRecoverySpecification:\n        PointInTimeRecoveryEnabled: true\n", ""]]}},
+    {"id": "no-ttl", "edits": {DATA: [["        Enabled: true\n      DeletionProtectionEnabled", "        Enabled: false\n      DeletionProtectionEnabled"]]}},
+    {"id": "wrong-key", "edits": {DATA: [["{AttributeName: code, KeyType: HASH}\n        - {AttributeName: day, KeyType: RANGE}", "{AttributeName: day, KeyType: HASH}\n        - {AttributeName: code, KeyType: RANGE}"]]}},
+    {"id": "clicks-deleted-with-stack", "edits": {DATA: [["    DeletionPolicy: Retain\n    UpdateReplacePolicy: Retain\n", ""]]}},
+    {"id": "cost-not-documented", "edits": {README: [["**22.50** USD", "**2.25** USD"]]}},
+    {"id": "no-data-tier-section", "edits": {README: [["## Data tier", "## Databases"]]}},
+]

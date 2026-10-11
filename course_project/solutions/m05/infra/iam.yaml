@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: shortly-infra M01 - IAM baseline (roles for the app, the click consumer, deployments and audits)
+
+Parameters:
+  Prefix:
+    Type: String
+    Default: shortly
+    AllowedPattern: '[a-z][a-z0-9-]{1,20}'
+  Env:
+    Type: String
+    AllowedValues: [lab, prod]
+
+Resources:
+  AppBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${Prefix}-boundary'
+      Description: The most any role created by the deployer may ever do
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AppServicesOnly
+            Effect: Allow
+            Action: ['s3:*', 'sqs:*', 'dynamodb:*', 'secretsmanager:GetSecretValue', 'logs:*', 'cloudwatch:PutMetricData']
+            Resource: '*'
+
+  AppRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Tags:
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+      RoleName: !Sub '${Prefix}-app'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      PermissionsBoundary: !Ref AppBoundary
+      Policies:
+        - PolicyName: app
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadDbSecret
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${Prefix}/db-*'
+              - Sid: ReadClickCounts
+                Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:Query]
+                Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Prefix}-clicks-daily'
+              - Sid: Uploads
+                Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${Prefix}-assets-${AWS::AccountId}/uploads/*'
+              - Sid: SendClicks
+                Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !Sub 'arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:${Prefix}-clicks'
+              - Sid: Logs
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/${Prefix}/app:*'
+              - Sid: OwnMetricsOnly
+                Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals: {'cloudwatch:namespace': Shortly}
+
+  AppInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub '${Prefix}-app'
+      Roles: [!Ref AppRole]
+
+  ConsumerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Tags:
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+      RoleName: !Sub '${Prefix}-click-consumer'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      PermissionsBoundary: !Ref AppBoundary
+      Policies:
+        - PolicyName: consumer
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadClickQueue
+                Effect: Allow
+                Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes]
+                Resource: !Sub 'arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:${Prefix}-clicks'
+              - Sid: WriteRollups
+                Effect: Allow
+                Action: dynamodb:UpdateItem
+                Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${Prefix}-clicks-daily'
+              - Sid: Logs
+                Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${Prefix}-*'
+
+  DeployerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Tags:
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+      RoleName: !Sub '${Prefix}-deployer'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'}
+            Action: sts:AssumeRole
+            Condition:
+              Bool: {'aws:MultiFactorAuthPresent': 'true'}
+      Policies:
+        - PolicyName: deployer
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: OwnStacks
+                Effect: Allow
+                Action: [cloudformation:CreateStack, cloudformation:UpdateStack, cloudformation:DeleteStack, cloudformation:DescribeStacks, cloudformation:CreateChangeSet, cloudformation:ExecuteChangeSet, cloudformation:DescribeChangeSet]
+                Resource: !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${Prefix}-*/*'
+              - Sid: RolesOnlyWithTheBoundary
+                Effect: Allow
+                Action: [iam:CreateRole, iam:PutRolePolicy, iam:AttachRolePolicy, iam:DeleteRolePolicy, iam:DetachRolePolicy]
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${Prefix}-*'
+                Condition:
+                  StringEquals:
+                    'iam:PermissionsBoundary': !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/${Prefix}-boundary'
+              - Sid: PassOwnRolesToComputeOnly
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${Prefix}-*'
+                Condition:
+                  StringEquals:
+                    'iam:PassedToService': [ec2.amazonaws.com, lambda.amazonaws.com]
+              - Sid: NeverRemoveTheBoundary
+                Effect: Deny
+                Action: [iam:DeleteRolePermissionsBoundary, iam:PutRolePermissionsBoundary, iam:DeletePolicy, iam:CreatePolicyVersion]
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*'
+                  - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/${Prefix}-boundary'
+
+  AuditorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Tags:
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+      RoleName: !Sub '${Prefix}-auditor'
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'}
+            Action: sts:AssumeRole
+            Condition:
+              Bool: {'aws:MultiFactorAuthPresent': 'true'}
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/ReadOnlyAccess'
+
+Outputs:
+  AppRoleArn:
+    Value: !GetAtt AppRole.Arn
+    Export: {Name: !Sub '${Prefix}-app-role-arn'}
+  AppInstanceProfileName:
+    Value: !Ref AppInstanceProfile
+    Export: {Name: !Sub '${Prefix}-app-instance-profile'}
+  ConsumerRoleArn:
+    Value: !GetAtt ConsumerRole.Arn
+    Export: {Name: !Sub '${Prefix}-consumer-role-arn'}
+  BoundaryArn:
+    Value: !Ref AppBoundary
+    Export: {Name: !Sub '${Prefix}-boundary-arn'}

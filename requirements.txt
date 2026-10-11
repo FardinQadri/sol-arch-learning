@@ -1,0 +1,10 @@
+# AWS SAA course — pinned versions (Windows 11, Python 3.14.2, verified 2026-10-08)
+# Install (course folder, venv active):  python -m pip install -r requirements.txt
+# The spike (docs/research/2026-10-08-moto-cfnlint-spike.md) found no Windows Application Control
+# blocks with these versions. If .venv\Scripts\python.exe ever disappears, run:
+#     python -m venv --upgrade .venv
+moto[all]==5.2.3
+boto3==1.43.109
+botocore==1.43.109
+cfn-lint==1.57.2
+pytest==9.1.1

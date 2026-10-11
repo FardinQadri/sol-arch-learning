@@ -1,0 +1,228 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: shortly-infra M03 - compute (load balancer, launch template, Auto Scaling group)
+
+Parameters:
+  Prefix:
+    Type: String
+    Default: shortly
+    AllowedPattern: '[a-z][a-z0-9-]{1,20}'
+  Env:
+    Type: String
+    AllowedValues: [lab, prod]
+  InstanceType:
+    Type: String
+    Default: t4g.small
+    AllowedValues: [t4g.small, t4g.medium, m7g.large, c7g.large]
+  ImageId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
+
+Conditions:
+  IsProd: !Equals [!Ref Env, prod]
+
+Resources:
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${Prefix}-alb'
+      Type: application
+      Scheme: internet-facing
+      Subnets: !Split [',', !ImportValue {'Fn::Sub': '${Prefix}-public-subnet-ids'}]
+      SecurityGroups: [!ImportValue {'Fn::Sub': '${Prefix}-alb-sg-id'}]
+
+  AppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${Prefix}-app'
+      Protocol: HTTP
+      Port: 8000
+      VpcId: !ImportValue {'Fn::Sub': '${Prefix}-vpc-id'}
+      TargetType: instance
+      HealthCheckPath: /healthz
+      Matcher: {HttpCode: '200'}
+      TargetGroupAttributes:
+        - {Key: deregistration_delay.timeout_seconds, Value: '30'}
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - {Type: forward, TargetGroupArn: !Ref AppTargetGroup}
+
+  HealthzRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref HttpListener
+      Priority: 10
+      Conditions:
+        - {Field: path-pattern, PathPatternConfig: {Values: [/healthz]}}
+      Actions:
+        - Type: fixed-response
+          FixedResponseConfig: {StatusCode: '404', ContentType: text/plain, MessageBody: not found}
+
+  ApiRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref HttpListener
+      Priority: 20
+      Conditions:
+        - {Field: path-pattern, PathPatternConfig: {Values: [/api/*]}}
+      Actions:
+        - {Type: forward, TargetGroupArn: !Ref AppTargetGroup}
+
+  AppLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${Prefix}-app'
+      LaunchTemplateData:
+        ImageId: !Ref ImageId
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile:
+          Name: !ImportValue {'Fn::Sub': '${Prefix}-app-instance-profile'}
+        SecurityGroupIds: [!ImportValue {'Fn::Sub': '${Prefix}-app-sg-id'}]
+        MetadataOptions:
+          HttpTokens: required
+          HttpPutResponseHopLimit: 1
+          HttpEndpoint: enabled
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            set -euo pipefail
+            useradd --system --no-create-home shortly || true
+            mkdir -p /opt/shortly
+            cat > /opt/shortly/app.py <<'EOF'
+            """shortly - a tiny URL shortener (standard library only, runs on Python 3.9+).
+
+            Links live in a dict in memory, so they vanish when the process restarts and each server
+            has its own copy. Milestone M05 moves them into a database.
+
+                PORT=8000 python3 app.py
+            """
+            import json
+            import os
+            import random
+            import string
+            from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+            from urllib.parse import urlparse
+
+            LINKS = {}
+            ALPHABET = string.ascii_letters + string.digits
+
+
+            def new_code():
+                while True:
+                    code = "".join(random.choice(ALPHABET) for _ in range(7))
+                    if code not in LINKS:
+                        return code
+
+
+            class Handler(BaseHTTPRequestHandler):
+                def reply(self, status, body, content_type="application/json", headers=None):
+                    data = (json.dumps(body) if content_type == "application/json" else body).encode("utf-8")
+                    self.send_response(status)
+                    self.send_header("Content-Type", content_type)
+                    self.send_header("Content-Length", str(len(data)))
+                    for name, value in (headers or {}).items():
+                        self.send_header(name, value)
+                    self.end_headers()
+                    self.wfile.write(data)
+
+                def do_GET(self):
+                    path = self.path.split("?")[0]
+                    if path == "/healthz":
+                        self.reply(200, "ok", "text/plain")
+                    elif path.startswith("/api/links/"):
+                        code = path[len("/api/links/"):]
+                        if code in LINKS:
+                            self.reply(200, {"code": code, "url": LINKS[code]})
+                        else:
+                            self.reply(404, {"error": "unknown code"})
+                    elif path.count("/") == 1 and path[1:] in LINKS:
+                        self.reply(302, "", "text/plain", {"Location": LINKS[path[1:]]})
+                    else:
+                        self.reply(404, "not found", "text/plain")
+
+                def do_POST(self):
+                    if self.path.split("?")[0] != "/api/links":
+                        return self.reply(404, "not found", "text/plain")
+                    try:
+                        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)))
+                        url = body["url"]
+                        parts = urlparse(url if isinstance(url, str) else "")
+                        if parts.scheme not in ("http", "https") or not parts.netloc:
+                            raise ValueError("url must start with http:// or https://")
+                    except (ValueError, KeyError, TypeError) as exc:
+                        return self.reply(400, {"error": "send JSON like {\"url\": \"https://example.com\"}: %s" % exc})
+                    code = new_code()
+                    LINKS[code] = url
+                    self.reply(201, {"code": code, "url": url})
+
+                def log_message(self, format, *args):
+                    print("%s %s" % (self.command, self.path))
+
+
+            def main():
+                port = int(os.environ.get("PORT", "8000"))
+                print("shortly listening on port %d" % port)
+                ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
+
+
+            if __name__ == "__main__":
+                main()
+            EOF
+            cat > /etc/systemd/system/shortly.service <<'EOF'
+            [Unit]
+            Description=shortly URL shortener
+            After=network-online.target
+            [Service]
+            User=shortly
+            Environment=PORT=8000
+            ExecStart=/usr/bin/python3 /opt/shortly/app.py
+            Restart=always
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+            systemctl daemon-reload
+            systemctl enable --now shortly
+
+  AppAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${Prefix}-app'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AppLaunchTemplate
+        Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
+      VPCZoneIdentifier: !Split [',', !ImportValue {'Fn::Sub': '${Prefix}-app-subnet-ids'}]
+      MinSize: !If [IsProd, 2, 1]
+      MaxSize: !If [IsProd, 6, 2]
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 120
+      TargetGroupARNs: [!Ref AppTargetGroup]
+      Tags:
+        - {Key: Name, Value: !Sub '${Prefix}-app', PropagateAtLaunch: true}
+
+  CpuTargetTracking:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AppAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification: {PredefinedMetricType: ASGAverageCPUUtilization}
+        TargetValue: 50
+
+Outputs:
+  AlbDnsName:
+    Value: !GetAtt LoadBalancer.DNSName
+    Export: {Name: !Sub '${Prefix}-alb-dns-name'}
+  AlbArn:
+    Value: !Ref LoadBalancer
+    Export: {Name: !Sub '${Prefix}-alb-arn'}
+  AppTargetGroupArn:
+    Value: !Ref AppTargetGroup
+    Export: {Name: !Sub '${Prefix}-app-tg-arn'}
+  AppAsgName:
+    Value: !Ref AppAutoScalingGroup
+    Export: {Name: !Sub '${Prefix}-app-asg-name'}

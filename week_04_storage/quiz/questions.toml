@@ -1,0 +1,515 @@
+[[question]]
+id = "w04-q01"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "S3 Standard-IA"]
+kind = "single"
+stem = """A media company keeps 40 TB of finished video projects in S3 Standard. After the first month each project is opened about once a month, and an editor who opens one expects it to load in milliseconds. The data must stay resilient to the loss of an Availability Zone, and the company wants the lowest storage cost that still meets these needs. What should the architect do?"""
+options = [
+  "Leave the projects in S3 Standard and add no lifecycle rule.",
+  "Transition the projects to S3 One Zone-IA after 30 days.",
+  "Transition the projects to S3 Glacier Flexible Retrieval after 30 days.",
+  "Transition the projects to S3 Standard-IA after 30 days.",
+]
+answer = ["D"]
+explain = { A = "This works, but Standard costs 0.023 USD per GB-month against 0.0125 for Standard-IA, so it is the more expensive way to hold data read once a month.", B = "One Zone-IA stores data in a single Availability Zone, so it does not survive the loss of that zone.", C = "Glacier Flexible Retrieval objects must be restored first, which takes minutes to hours, not milliseconds.", D = "Correct. Standard-IA keeps millisecond access across three or more AZs at a lower storage price, and a monthly read pays only a small per-GB retrieval fee." }
+ref = "week_04_storage/concepts/01_s3_fundamentals_and_classes.md"
+
+[[question]]
+id = "w04-q02"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "S3 One Zone-IA"]
+kind = "single"
+stem = """An e-commerce company generates a 400 KB thumbnail for every product image and stores it in S3. A job can regenerate any thumbnail from the original image in under a minute, so losing a thumbnail is only an inconvenience. Each thumbnail is read a few times a month for about two months and is then deleted. Reads must return in milliseconds. Which storage choice is the MOST cost-effective?"""
+options = [
+  "Store the thumbnails in S3 Standard.",
+  "Store the thumbnails in S3 Standard-IA.",
+  "Store the thumbnails in S3 One Zone-IA.",
+  "Store the thumbnails in S3 Intelligent-Tiering.",
+]
+answer = ["C"]
+explain = { A = "This works, but Standard costs 0.023 USD per GB-month, more than double the One Zone-IA price for data read only a few times a month.", B = "Standard-IA works, but it pays for three-AZ resilience at 0.0125 USD per GB-month that re-creatable data does not need.", C = "Correct. One Zone-IA costs 0.01 USD per GB-month and gives millisecond access. Its single-AZ storage is acceptable because the thumbnails can be regenerated.", D = "Intelligent-Tiering charges a monitoring fee per object and keeps new objects at the Standard price for their first 30 days, so it costs more here." }
+ref = "week_04_storage/concepts/01_s3_fundamentals_and_classes.md"
+
+[[question]]
+id = "w04-q03"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "S3 Glacier Instant Retrieval"]
+kind = "single"
+stem = """A hospital network stores 200 TB of imaging studies that it must keep for many years. Each study is opened about once per quarter, usually for a patient follow-up, and the radiologist expects it to appear in milliseconds. The hospital wants the lowest storage cost that still meets the access requirement. Which design should the architect choose?"""
+options = [
+  "Keep the studies in S3 Standard-IA permanently.",
+  "Store the studies in S3 Glacier Instant Retrieval.",
+  "Store the studies in S3 Glacier Flexible Retrieval and use Expedited restores.",
+  "Store the studies in S3 Glacier Deep Archive and use Standard restores.",
+]
+answer = ["B"]
+explain = { A = "This works, but Standard-IA costs 0.0125 USD per GB-month against 0.004 for Glacier Instant Retrieval, and a quarterly read does not offset that gap.", B = "Correct. Glacier Instant Retrieval is built for data read about once a quarter with millisecond access, and its storage price is the lowest of the classes that serve reads immediately.", C = "Expedited restores usually take 1 to 5 minutes, not milliseconds, and each restore is a separate request.", D = "Standard restores from Deep Archive take up to 12 hours." }
+ref = "week_04_storage/concepts/01_s3_fundamentals_and_classes.md"
+
+[[question]]
+id = "w04-q04"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "S3 Glacier Deep Archive"]
+kind = "single"
+stem = """A broker-dealer must retain seven years of trade records for compliance. The records are almost never read, and when an auditor does request them the company can wait up to two days for the data. The records are written once and never modified. The company wants the lowest possible storage cost. Which storage class should the architect use?"""
+options = [
+  "S3 Glacier Deep Archive.",
+  "S3 Glacier Flexible Retrieval.",
+  "S3 Glacier Instant Retrieval.",
+  "S3 Standard-IA.",
+]
+answer = ["A"]
+explain = { A = "Correct. Deep Archive is the cheapest class at about 0.00099 USD per GB-month. Standard retrievals take up to 12 hours and Bulk retrievals up to 48 hours, which fits a two-day wait.", B = "This works, but Flexible Retrieval costs 0.0036 USD per GB-month, over three times Deep Archive, and the company does not need its faster restores.", C = "Instant Retrieval pays for millisecond access at 0.004 USD per GB-month that the company never needs.", D = "Standard-IA costs 0.0125 USD per GB-month, over twelve times the Deep Archive price, for access speed the company does not need." }
+ref = "week_04_storage/concepts/01_s3_fundamentals_and_classes.md"
+
+[[question]]
+id = "w04-q05"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "S3 Glacier Flexible Retrieval"]
+kind = "single"
+stem = """A genomics lab archived 300 TB of sequencing data in S3 Glacier Flexible Retrieval. A one-time analysis needs all of it back, and the team can wait a day for the data to arrive. Nobody needs a faster restore, and the lab wants to pay as little as possible for the retrieval. How should the architect restore the objects?"""
+options = [
+  "Restore them with the Expedited retrieval tier.",
+  "Restore them with the Standard retrieval tier.",
+  "Restore them with the Bulk retrieval tier.",
+  "Buy provisioned capacity units and restore with the Expedited tier.",
+]
+answer = ["C"]
+explain = { A = "Expedited arrives in minutes but costs 0.03 USD per GB plus a per-request fee, which is the most expensive way to bring back a large archive.", B = "This works, but Standard retrieval costs 0.01 USD per GB, while Bulk retrieval of Glacier Flexible Retrieval objects is free per GB.", C = "Correct. Bulk retrieval finishes in 5 to 12 hours, inside the one-day window, and has no per-GB retrieval charge for Glacier Flexible Retrieval.", D = "Provisioned capacity guarantees Expedited throughput at an extra charge, which adds cost for speed the lab does not need." }
+ref = "week_04_storage/concepts/01_s3_fundamentals_and_classes.md"
+
+[[question]]
+id = "w04-q06"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "S3 Intelligent-Tiering"]
+kind = "single"
+stem = """A data-analytics company stores 500 TB of 5 MB result files in S3. Some datasets are read daily for weeks and then sit idle for months, and others become popular again without warning, so the team cannot predict which files will be hot. The company wants storage costs to fall for idle data, no retrieval fees when an old file is suddenly needed, and no ongoing lifecycle tuning. What should the architect do?"""
+options = [
+  "Add a lifecycle rule that moves all files to S3 Standard-IA after 30 days.",
+  "Store the files in S3 Intelligent-Tiering.",
+  "Add a lifecycle rule that moves all files to S3 Glacier Instant Retrieval after 30 days.",
+  "Keep the files in S3 Standard and review access reports each quarter.",
+]
+answer = ["B"]
+explain = { A = "Standard-IA charges 0.01 USD per GB each time a file is read, so datasets that become hot again incur retrieval fees.", B = "Correct. Intelligent-Tiering moves each object between access tiers on its own and charges no retrieval fees, so unpredictable access needs no tuning.", C = "Glacier Instant Retrieval charges 0.03 USD per GB retrieved, so files that suddenly become popular again become expensive to read.", D = "This works, but Standard never lowers the price of idle data and the quarterly review is manual effort the company wants to avoid." }
+ref = "week_04_storage/concepts/01_s3_fundamentals_and_classes.md"
+
+[[question]]
+id = "w04-q07"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "S3 Lifecycle", "S3 Standard-IA"]
+kind = "single"
+stem = """A finance team uploads daily export files of about 50 MB directly into S3 Standard-IA by setting the storage class on each PUT, and a lifecycle rule deletes each file on day 10. The files are read often during their short life, and the bill shows 30 days of Standard-IA storage for every file. The team wants the lowest cost for these short-lived files. What change should the architect make?"""
+options = [
+  "Upload the files to S3 Standard and keep the delete rule on day 10.",
+  "Upload the files to S3 One Zone-IA and keep the delete rule on day 10.",
+  "Upload the files to S3 Glacier Instant Retrieval and keep the delete rule on day 10.",
+  "Keep uploading to Standard-IA and move the delete rule to day 30.",
+]
+answer = ["A"]
+explain = { A = "Correct. Standard-IA bills a 30-day minimum, so deleting on day 10 still pays for 30 days. Standard has no minimum duration, so 10 days of storage cost less.", B = "One Zone-IA also has a 30-day minimum duration, so the early-delete charge remains.", C = "Glacier Instant Retrieval has a 90-day minimum duration, which makes the early-delete charge larger.", D = "The files still pay Standard-IA retrieval fees for frequent reads and are kept 20 days longer for nothing." }
+ref = "week_04_storage/concepts/01_s3_fundamentals_and_classes.md"
+
+[[question]]
+id = "w04-q08"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "S3 Standard-IA"]
+kind = "single"
+stem = """An IoT company stores 300 million sensor readings as separate 20 KB objects. Each object is read a few times a month, always in milliseconds. An engineer proposes lifecycle rules that move the objects to an infrequent-access class after 30 days to cut the storage bill. Which approach lowers the monthly cost?"""
+options = [
+  "Transition the objects to S3 Standard-IA.",
+  "Transition the objects to S3 One Zone-IA.",
+  "Transition the objects to S3 Glacier Instant Retrieval.",
+  "Keep the objects in S3 Standard.",
+]
+answer = ["D"]
+explain = { A = "Standard-IA bills each object as at least 128 KB, so a 20 KB object is charged for more than six times its size, which outweighs the lower per-GB rate.", B = "One Zone-IA also bills a 128 KB minimum per object, so a 20 KB object is billed for 128 KB at 0.01 USD per GB-month, more than Standard.", C = "Glacier Instant Retrieval bills at least 128 KB per object and adds a 0.03 USD per GB retrieval fee and a 90-day minimum, so it costs more than Standard for 20 KB objects.", D = "Correct. Standard has no minimum billable object size, so 20 KB objects are billed as 20 KB, which is cheaper than the 128 KB charge of the IA classes." }
+ref = "week_04_storage/concepts/01_s3_fundamentals_and_classes.md"
+
+[[question]]
+id = "w04-q09"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "S3 Lifecycle"]
+kind = "single"
+stem = """A SaaS company writes 2 TB of application logs to S3 every month. Engineers read the logs daily for the first 30 days. For the next 60 days they sometimes look at old logs and need them in milliseconds. After that, only auditors read them, and a retrieval time of up to 5 hours is fine. The logs can be deleted after 365 days. Which lifecycle configuration has the lowest cost and meets these needs?"""
+options = [
+  "Standard-IA at day 30, Glacier Flexible Retrieval at day 90, expire at day 365.",
+  "Glacier Flexible Retrieval at day 30, expire at day 365.",
+  "Standard-IA at day 30, Glacier Deep Archive at day 90, expire at day 365.",
+  "Glacier Flexible Retrieval at day 90, expire at day 365, with the logs in S3 Standard until then.",
+]
+answer = ["A"]
+explain = { A = "Correct. Standard-IA covers the occasional millisecond reads, and Glacier Flexible Retrieval restores in 3 to 5 hours with Standard retrievals, matching the audit requirement at a low price.", B = "Moving to Flexible Retrieval at day 30 removes millisecond access for the logs that engineers still look at between days 30 and 90.", C = "Deep Archive Standard retrievals take up to 12 hours, which misses the 5-hour requirement.", D = "This works, but keeping the logs in Standard for 90 days costs more than moving them to Standard-IA at day 30." }
+ref = "week_04_storage/concepts/02_s3_lifecycle_versioning_replication.md"
+
+[[question]]
+id = "w04-q10"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "S3 Versioning", "S3 Lifecycle"]
+kind = "single"
+stem = """A law firm turned on versioning for the bucket that holds its working documents, and the storage bill has quadrupled because every edit leaves a full copy behind. Staff must still be able to restore any of the three most recent previous versions of a document quickly. Older versions are never needed. What is the MOST cost-effective change?"""
+options = [
+  "Add a lifecycle rule that expires current versions 3 days after their last modification.",
+  "Suspend versioning and delete the old versions by hand every 3 months.",
+  "Add a lifecycle rule that expires noncurrent versions, keeping the 3 newest ones.",
+  "Add a lifecycle rule that moves noncurrent versions to S3 Standard-IA after 30 days.",
+]
+answer = ["C"]
+explain = { A = "Expiring current versions deletes the live documents, not the old copies that drive the cost.", B = "Suspending versioning removes the ability to restore recent versions, and the hand deletion is manual work that keeps cost in place until it happens.", C = "Correct. NoncurrentVersionExpiration with NewerNoncurrentVersions keeps the three newest noncurrent versions and permanently deletes older ones, so the growth stops.", D = "This keeps working, but it keeps every old version forever at a lower rate, so the total still grows." }
+ref = "week_04_storage/concepts/02_s3_lifecycle_versioning_replication.md"
+
+[[question]]
+id = "w04-q11"
+domain = 1
+task = "1.3"
+services = ["Amazon S3", "S3 Versioning"]
+kind = "single"
+stem = """A user deleted quarterly-report.pdf from a bucket that has versioning enabled. The delete was a plain DELETE request with no version ID, and the object no longer appears in listings. The user needs the same file back, with the least effort and without uploading anything again. What should the administrator do?"""
+options = [
+  "Request a restore of the object from S3 Glacier.",
+  "Permanently delete the delete marker by specifying its version ID.",
+  "Suspend versioning on the bucket and list the object again.",
+  "Replicate the object from a backup bucket created today.",
+]
+answer = ["B"]
+explain = { A = "Glacier restores apply to archived storage classes, and nothing here was archived.", B = "Correct. A plain delete in a versioned bucket only adds a delete marker. Deleting that marker with its version ID makes the previous version current again.", C = "Suspending versioning does not remove the existing delete marker, so the object stays hidden.", D = "There is no backup bucket holding the file, and replication copies only new changes, so this cannot return the object." }
+ref = "week_04_storage/concepts/02_s3_lifecycle_versioning_replication.md"
+
+[[question]]
+id = "w04-q12"
+domain = 1
+task = "1.3"
+services = ["Amazon S3", "S3 Object Lock"]
+kind = "single"
+stem = """A broker-dealer must keep trade confirmations in a state where no one can change or delete them for six years. Regulators require that this holds even for the account root user and for administrators with full S3 permissions. The records live in a single bucket. Which solution meets the requirement?"""
+options = [
+  "Enable Object Lock in governance mode with a six-year default retention.",
+  "Add a bucket policy that denies s3:DeleteObject to every principal for six years.",
+  "Enable versioning and MFA Delete, and add a lifecycle rule that expires objects after six years.",
+  "Enable Object Lock in compliance mode with a six-year default retention.",
+]
+answer = ["D"]
+explain = { A = "Governance mode lets a user with s3:BypassGovernanceRetention overwrite or delete the object, so privileged administrators can still remove records.", B = "A bucket policy can be edited or removed by an administrator, so it does not provide WORM protection.", C = "MFA Delete only requires a second factor from the root user, and a lifecycle rule can expire objects, so neither blocks deletion.", D = "Correct. In compliance mode no user, including root, can overwrite or delete a protected version, and the retention period cannot be shortened until it ends." }
+ref = "week_04_storage/concepts/02_s3_lifecycle_versioning_replication.md"
+
+[[question]]
+id = "w04-q13"
+domain = 1
+task = "1.3"
+services = ["Amazon S3", "S3 Object Lock"]
+kind = "single"
+stem = """A company must store contract files so that ordinary users and developers cannot modify or delete them for one year. A small group of security administrators must still be able to shorten or remove the retention when a legal ruling allows it. The protection has to be write-once-read-many, enforced by S3 itself. Which configuration meets these requirements?"""
+options = [
+  "Object Lock in governance mode for one year, with s3:BypassGovernanceRetention granted to the administrators.",
+  "Object Lock in compliance mode for one year, with the administrators allowed to shorten it.",
+  "A bucket policy denying delete to everyone except the administrator role, for one year.",
+  "Versioning with MFA Delete enabled and the MFA device held by the administrators.",
+]
+answer = ["A"]
+explain = { A = "Correct. Governance mode protects objects from normal users, and principals with s3:BypassGovernanceRetention and the bypass header can shorten or remove retention.", B = "In compliance mode nobody, including administrators, can shorten the retention period.", C = "A bucket policy is not WORM protection enforced by S3 object retention, and an administrator can rewrite it at any time.", D = "MFA Delete protects version deletion with a second factor but offers no retention period or write-once protection." }
+ref = "week_04_storage/concepts/02_s3_lifecycle_versioning_replication.md"
+
+[[question]]
+id = "w04-q14"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "S3 Lifecycle", "Multipart upload"]
+kind = "single"
+stem = """A video platform uploads 100 GB files to S3 with multipart upload, and many uploads fail halfway when users close their browsers. The S3 storage bill keeps growing, yet listing the bucket shows no extra objects. The company wants to stop paying for the leftover data without changing the upload application. What should the architect do?"""
+options = [
+  "Add a lifecycle rule that expires objects 7 days after creation.",
+  "Add a lifecycle rule that moves objects to Glacier Flexible Retrieval after 7 days.",
+  "Add a lifecycle rule that aborts incomplete multipart uploads after 7 days.",
+  "Enable versioning and expire noncurrent versions after 7 days.",
+]
+answer = ["C"]
+explain = { A = "Object expiration rules do not remove incomplete multipart uploads, so the stored parts keep billing.", B = "Parts of an unfinished upload are not objects yet, so a transition rule does not apply to them.", C = "Correct. Parts of an unfinished multipart upload are billed until completed or aborted, and AbortIncompleteMultipartUpload removes them after the set number of days.", D = "Versioning applies to completed objects, and it would add copies rather than remove orphaned parts." }
+ref = "week_04_storage/concepts/02_s3_lifecycle_versioning_replication.md"
+
+[[question]]
+id = "w04-q15"
+domain = 2
+task = "2.2"
+services = ["Amazon S3", "S3 Cross-Region Replication", "AWS IAM"]
+kind = "multi"
+choose = 2
+stem = """A retailer keeps order documents in a bucket in us-east-1 and wants every new object copied automatically to a bucket in eu-west-1 to support disaster recovery. The two buckets are in the same account. Which TWO steps are required to configure cross-Region replication? (Select TWO.)"""
+options = [
+  "Enable versioning on both the source and the destination bucket.",
+  "Create a replication rule that names an IAM role S3 can assume to copy the objects.",
+  "Enable Transfer Acceleration on both buckets.",
+  "Enable Object Lock on both buckets.",
+  "Move the source objects to S3 Intelligent-Tiering.",
+]
+answer = ["A", "B"]
+explain = { A = "Correct. Replication requires versioning on both the source and destination buckets.", B = "Correct. S3 needs an IAM role with permission to read from the source and write to the destination, named in the replication rule.", C = "Transfer Acceleration speeds client uploads and plays no part in replication.", D = "Object Lock is required on the destination only when the source uses it, and nothing in the scenario does.", E = "The source storage class does not affect replication, and nothing requires a particular class." }
+ref = "week_04_storage/concepts/02_s3_lifecycle_versioning_replication.md"
+
+[[question]]
+id = "w04-q16"
+domain = 2
+task = "2.2"
+services = ["Amazon S3", "S3 Replication Time Control"]
+kind = "single"
+stem = """A payments company replicates objects from a bucket in us-east-1 to a bucket in us-west-2. Its compliance team requires that new objects appear in the destination within 15 minutes, backed by a service-level commitment, and wants replication metrics to prove it. Which solution meets the requirement?"""
+options = [
+  "Run S3 Batch Replication jobs on a 15-minute schedule.",
+  "Enable S3 Replication Time Control on the replication rule.",
+  "Enable Transfer Acceleration on the destination bucket.",
+  "Add a second replication rule with replica modification sync enabled.",
+]
+answer = ["B"]
+explain = { A = "Batch Replication is an on-demand tool for existing objects and is not covered by the Replication Time Control commitment.", B = "Correct. Replication Time Control replicates new objects within 15 minutes, is backed by an SLA, and publishes replication metrics.", C = "Transfer Acceleration affects client uploads and does not change how fast S3 replicates objects.", D = "Replica modification sync copies metadata changes back from the replica and gives no time commitment." }
+ref = "week_04_storage/concepts/02_s3_lifecycle_versioning_replication.md"
+
+[[question]]
+id = "w04-q17"
+domain = 2
+task = "2.2"
+services = ["Amazon S3", "S3 Batch Replication"]
+kind = "single"
+stem = """A company turned on cross-Region replication for a bucket that already holds 80 TB of objects. New uploads now replicate, but the objects uploaded before the rule existed are missing from the destination Region. The company needs those older objects copied as well, with the least manual effort. What should the architect do?"""
+options = [
+  "Suspend versioning on the source bucket and enable it again.",
+  "Create a second replication rule with the same source and destination.",
+  "Enable Replication Time Control on the existing rule.",
+  "Run an S3 Batch Replication job for the existing objects.",
+]
+answer = ["D"]
+explain = { A = "Toggling versioning does not copy existing objects, and a versioning change can break the replication rule.", B = "A live replication rule only affects objects written after it exists, so a second rule has the same gap.", C = "Replication Time Control speeds up replication of new objects and does not cover existing ones.", D = "Correct. Live replication skips objects that existed before the rule, and S3 Batch Replication copies those existing objects on demand." }
+ref = "week_04_storage/concepts/02_s3_lifecycle_versioning_replication.md"
+
+[[question]]
+id = "w04-q18"
+domain = 2
+task = "2.2"
+services = ["Amazon S3", "S3 Same-Region Replication"]
+kind = "single"
+stem = """A company has twelve AWS accounts in us-east-1, and each writes application logs to its own S3 bucket. A data-sovereignty rule keeps all data in us-east-1. The security team wants a copy of every new log object in a bucket owned by a central log-archive account, with no scripts to maintain and no inter-Region data transfer charges. Which solution should the architect use?"""
+options = [
+  "Create a cross-Region replication rule from each bucket to a central bucket in us-west-2.",
+  "Create a same-Region replication rule from each bucket to the central bucket in us-east-1.",
+  "Run a nightly AWS DataSync task from each account to the central bucket.",
+  "Enable server access logging on each bucket with the central bucket as the target.",
+]
+answer = ["B"]
+explain = { A = "Cross-Region replication would move data out of us-east-1, which the sovereignty rule forbids, and adds inter-Region transfer charges.", B = "Correct. Same-Region replication copies new objects between buckets in the same Region, including across accounts, with no code to run.", C = "DataSync works, but it needs a scheduled task in every account and does not copy objects as they arrive.", D = "Server access logs record requests to a bucket and do not copy the log objects stored in it." }
+ref = "week_04_storage/concepts/02_s3_lifecycle_versioning_replication.md"
+
+[[question]]
+id = "w04-q19"
+domain = 1
+task = "1.3"
+services = ["Amazon S3", "S3 Block Public Access"]
+kind = "single"
+stem = """A security team must guarantee that no S3 bucket the company owns can be made public, including buckets that developers create next month. Developers are allowed to create buckets and write bucket policies and ACLs. The team wants one control that applies automatically to every bucket. What should the team do?"""
+options = [
+  "Turn on S3 Block Public Access on each existing bucket.",
+  "Attach an IAM policy to developers that denies s3:PutBucketAcl.",
+  "Turn on S3 Block Public Access in the S3 settings for the whole account.",
+  "Enable Amazon Macie to alert when a bucket becomes public.",
+]
+answer = ["C"]
+explain = { A = "Bucket-level settings cover only the buckets they are applied to, so buckets created later start without them.", B = "This blocks ACL changes only; a developer can still make a bucket public with a bucket policy.", C = "Correct. Account-level Block Public Access overrides bucket settings for every current and future bucket, whatever policies or ACLs developers write.", D = "Macie detects public buckets after the fact and does not prevent them from becoming public." }
+ref = "week_04_storage/concepts/03_s3_security.md"
+
+[[question]]
+id = "w04-q20"
+domain = 1
+task = "1.3"
+services = ["Amazon S3", "Bucket policies"]
+kind = "single"
+stem = """A healthcare company stores records in S3 and must make sure every request to the bucket uses encrypted transport. Requests that arrive over plain HTTP must be rejected, regardless of who sends them. The data already uses server-side encryption. Which solution meets the requirement?"""
+options = [
+  "Switch the bucket default encryption from SSE-S3 to SSE-KMS.",
+  "Turn on S3 Block Public Access for the bucket.",
+  "Create an S3 interface endpoint in the company VPC.",
+  "Add a bucket policy that denies all requests when aws:SecureTransport is false.",
+]
+answer = ["D"]
+explain = { A = "SSE-KMS protects stored data, and a request can still travel over plain HTTP.", B = "Block Public Access restricts public policies and ACLs and does not look at the transport protocol.", C = "An endpoint changes the network path of VPC traffic and does not stop other callers from using HTTP.", D = "Correct. A Deny statement with the condition aws:SecureTransport = false rejects every request that does not use HTTPS." }
+ref = "week_04_storage/concepts/03_s3_security.md"
+
+[[question]]
+id = "w04-q21"
+domain = 4
+task = "4.1"
+services = ["Amazon S3", "AWS KMS", "S3 Bucket Keys"]
+kind = "single"
+stem = """A bank encrypts a busy S3 bucket with SSE-KMS using a customer managed key. Security requires that key policies and CloudTrail records for the KMS key stay in place. The bucket serves billions of requests a month, and the KMS request charges are now a large part of the bill. How can the architect cut the KMS cost the MOST while keeping the key control?"""
+options = [
+  "Enable S3 Bucket Keys for the bucket.",
+  "Switch the bucket to SSE-C and have clients supply the keys.",
+  "Switch the bucket to SSE-S3.",
+  "Switch the bucket to DSSE-KMS.",
+]
+answer = ["A"]
+explain = { A = "Correct. A Bucket Key lets S3 generate data keys locally from a bucket-level key, which cuts requests to KMS by up to 99 percent while the customer managed key still governs access.", B = "SSE-C removes KMS from the design, so key policies and the KMS CloudTrail trail the bank requires are lost.", C = "SSE-S3 removes the customer managed key, so the bank loses KMS key policy and audit control.", D = "DSSE-KMS applies two layers of encryption, does not support Bucket Keys, and increases the cost." }
+ref = "week_04_storage/concepts/03_s3_security.md"
+
+[[question]]
+id = "w04-q22"
+domain = 1
+task = "1.3"
+services = ["Amazon S3", "Presigned URLs"]
+kind = "single"
+stem = """A customer portal stores invoices as private objects in S3. A customer who has no AWS account must be able to download one specific invoice, but only for the next 15 minutes. The company does not want to run a proxy server for downloads. Which solution should the architect use?"""
+options = [
+  "Make the invoice object public and delete it after 15 minutes.",
+  "Generate a presigned URL for the object that expires in 15 minutes.",
+  "Create a temporary IAM user for the customer and delete it after 15 minutes.",
+  "Add a bucket policy that allows the customer's IP address for 15 minutes.",
+]
+answer = ["B"]
+explain = { A = "Making the object public exposes it to everyone until it is deleted, and the company cannot guarantee it will be removed on time.", B = "Correct. A presigned URL grants temporary access to one private object using the permissions of the principal that signed it, and stops working at expiry.", C = "Creating an IAM user for a customer is heavy access management that gives the customer broader credentials than one download needs.", D = "The customer's IP address is not known or stable, and the policy needs manual cleanup to stop allowing it." }
+ref = "week_04_storage/concepts/03_s3_security.md"
+
+[[question]]
+id = "w04-q23"
+domain = 1
+task = "1.3"
+services = ["Amazon S3", "Amazon CloudFront"]
+kind = "multi"
+choose = 2
+stem = """A marketing company serves website assets from a private S3 bucket through an Amazon CloudFront distribution. Viewers must reach the objects only through CloudFront, and requests sent directly to the S3 URL must be denied. Which TWO steps meet these requirements? (Select TWO.)"""
+options = [
+  "Create a CloudFront origin access control and attach it to the S3 origin.",
+  "Add a bucket policy that allows the CloudFront service principal only for requests from this distribution.",
+  "Enable static website hosting and use the website endpoint as the origin.",
+  "Turn off Block Public Access and grant public read on the bucket.",
+  "Enable Transfer Acceleration on the bucket and use its endpoint as the origin.",
+]
+answer = ["A", "B"]
+explain = { A = "Correct. Origin access control makes CloudFront sign its requests to the S3 origin.", B = "Correct. The bucket policy lets cloudfront.amazonaws.com read objects only when AWS:SourceArn matches the distribution, so direct S3 requests are denied.", C = "A website endpoint cannot use origin access control, and it serves content publicly.", D = "Public read lets anyone fetch objects straight from S3, which is the opposite of the requirement.", E = "Transfer Acceleration speeds client uploads and does not restrict who can read objects." }
+ref = "week_04_storage/concepts/03_s3_security.md"
+
+[[question]]
+id = "w04-q24"
+domain = 3
+task = "3.1"
+services = ["Amazon S3", "Multipart upload"]
+kind = "single"
+stem = """A film studio uploads 5 GB video files from its office to an S3 bucket in the nearest Region over a fast, reliable 1 Gbps link. Uploading each file as a single request is slow, and a dropped connection near the end forces a full restart. The studio wants faster uploads and recovery of only the failed portion. What should the architect do?"""
+options = [
+  "Upload each file with a single PUT request over several parallel connections.",
+  "Enable Transfer Acceleration and upload each file with a single PUT request.",
+  "Use multipart upload with 100 MB parts sent in parallel.",
+  "Upload each file through the S3 console one at a time.",
+]
+answer = ["C"]
+explain = { A = "A single PUT sends the object as one request, so parallel connections do not help it and a failure still restarts the whole file.", B = "Acceleration helps long-distance paths, and the bucket is in the nearest Region, so it adds cost without fixing the restart problem.", C = "Correct. Multipart upload splits the file into parts uploaded in parallel and retries only a failed part, which also raises throughput on a fast link.", D = "The console still sends the file as a single stream per upload, and nothing here gives parallel parts or partial retry." }
+ref = "week_04_storage/concepts/05_fsx_gateway_and_choosing.md"
+
+[[question]]
+id = "w04-q25"
+domain = 3
+task = "3.1"
+services = ["Amazon S3", "S3 Transfer Acceleration"]
+kind = "single"
+stem = """A photography site lets users in Asia, Europe and South America upload 2 GB RAW files into one bucket in us-east-1. Uploads from far away are slow and unstable. The company wants faster uploads from every continent while keeping a single bucket and not running any servers. What should the architect do?"""
+options = [
+  "Enable S3 Transfer Acceleration on the bucket and use the accelerate endpoint.",
+  "Create a bucket in each Region and replicate every bucket to a central bucket.",
+  "Increase the multipart part size to 5 GB.",
+  "Spread the uploads across ten key prefixes.",
+]
+answer = ["A"]
+explain = { A = "Correct. Transfer Acceleration routes uploads to the nearest CloudFront edge location and then over the AWS network to the bucket, which speeds long-distance transfers.", B = "This works for uploads, but it needs a bucket and replication per Region, which breaks the single-bucket requirement and costs more.", C = "A larger part size does not shorten the distance and makes retries heavier.", D = "Prefixes raise request-rate limits and do nothing for network distance." }
+ref = "week_04_storage/concepts/05_fsx_gateway_and_choosing.md"
+
+[[question]]
+id = "w04-q26"
+domain = 3
+task = "3.1"
+services = ["Amazon S3", "S3 request rates"]
+kind = "single"
+stem = """A log-analysis application reads about 20,000 small objects per second from an S3 general purpose bucket. All the objects share a single key prefix, and the application receives 503 Slow Down responses at peak. What should the architect do to remove the errors?"""
+options = [
+  "Add a random suffix to the end of each object key under the same prefix.",
+  "Open a support case to raise the bucket's request limit.",
+  "Enable Transfer Acceleration for the application.",
+  "Spread the objects across several prefixes and read them in parallel.",
+]
+answer = ["D"]
+explain = { A = "The prefix stays the same, so the per-prefix request limit is unchanged.", B = "S3 scales per prefix, and the limit is not raised by a support case for a single bucket.", C = "Transfer Acceleration speeds long-distance transfers and does not raise the request rate of a prefix.", D = "Correct. Each prefix supports at least 5,500 GET/HEAD requests per second, so four or more prefixes cover 20,000 per second." }
+ref = "week_04_storage/concepts/05_fsx_gateway_and_choosing.md"
+
+[[question]]
+id = "w04-q27"
+domain = 4
+task = "4.1"
+services = ["Amazon EBS", "gp3", "gp2"]
+kind = "single"
+stem = """A company runs a database on a 2,000 GiB gp2 volume. At 3 IOPS per GiB the volume delivers 6,000 IOPS, which the workload needs, and throughput is not a problem. The company wants to keep that performance while lowering the cost of the volume, without detaching it. Which change is the MOST cost-effective?"""
+options = [
+  "Increase the gp2 volume to 3,000 GiB for more baseline IOPS.",
+  "Modify the volume to gp3 and provision 6,000 IOPS.",
+  "Modify the volume to io2 and provision 6,000 IOPS.",
+  "Modify the volume to st1 and keep the same size.",
+]
+answer = ["B"]
+explain = { A = "This works, but a larger gp2 volume costs 0.10 USD per GB-month and adds 1,000 GiB the workload does not need.", B = "Correct. A gp3 volume includes 3,000 IOPS and charges a small amount for the extra 3,000, and its storage costs 20 percent less per GB than gp2. The change can be made in place.", C = "io2 works, but its IOPS are priced at 0.065 USD per provisioned IOPS-month, which costs far more than gp3.", D = "st1 is a throughput-optimized HDD with a maximum of 500 IOPS, so it cannot deliver 6,000 IOPS." }
+ref = "week_04_storage/concepts/04_ebs_instance_store_efs.md"
+
+[[question]]
+id = "w04-q28"
+domain = 3
+task = "3.1"
+services = ["Amazon EBS", "EBS Multi-Attach", "Amazon EC2"]
+kind = "multi"
+choose = 2
+stem = """A company runs a clustered application on three Nitro-based EC2 instances in a single Availability Zone. All three instances must read and write the same block volume at the same time. Which TWO actions meet this requirement? (Select TWO.)"""
+options = [
+  "Create an io2 volume with Multi-Attach enabled and attach it to the instances.",
+  "Format the volume with a cluster-aware file system, or let the application coordinate writes.",
+  "Create a gp3 volume with Multi-Attach enabled and attach it to the instances.",
+  "Format the volume with XFS and mount it read-write on all three instances.",
+  "Place the three instances in different Availability Zones and attach one volume.",
+]
+answer = ["A", "B"]
+explain = { A = "Correct. Multi-Attach is available only for Provisioned IOPS SSD volumes, io1 and io2, and attaches one volume to up to 16 Nitro instances in the same AZ.", B = "Correct. Multi-Attach gives no write ordering. A cluster-aware file system, or the application itself, must coordinate writes to avoid corruption.", C = "gp3 volumes do not support Multi-Attach.", D = "XFS is not cluster-aware, so concurrent read-write mounts risk corrupting the file system.", E = "A volume attaches only to instances in its own Availability Zone, including with Multi-Attach." }
+ref = "week_04_storage/concepts/04_ebs_instance_store_efs.md"
+
+[[question]]
+id = "w04-q29"
+domain = 3
+task = "3.1"
+services = ["Amazon EFS", "Amazon EC2"]
+kind = "single"
+stem = """A publishing company runs Linux web servers in three Availability Zones behind a load balancer. Every server must read and write the same uploaded media files through a shared POSIX file system. The storage must grow and shrink on its own, and the company does not want to manage capacity. Which storage solution should the architect choose?"""
+options = [
+  "An io2 volume with Multi-Attach, attached to every server.",
+  "Amazon FSx for Windows File Server with an SMB share.",
+  "A Regional Amazon EFS file system with a mount target in each Availability Zone.",
+  "Instance store volumes on every server, synchronized with rsync.",
+]
+answer = ["C"]
+explain = { A = "An EBS volume, even with Multi-Attach, attaches only within one Availability Zone, so it cannot serve three zones.", B = "FSx for Windows File Server uses SMB with Windows permissions and is not a POSIX file system for Linux servers.", C = "Correct. EFS is a shared NFS file system for Linux that spans Availability Zones, grows and shrinks automatically, and is mounted through a mount target in each zone.", D = "Instance store data is local and temporary, and rsync gives no shared view of the files." }
+ref = "week_04_storage/concepts/04_ebs_instance_store_efs.md"
+
+[[question]]
+id = "w04-q30"
+domain = 3
+task = "3.1"
+services = ["AWS Storage Gateway", "S3 File Gateway", "Amazon S3"]
+kind = "single"
+stem = """A manufacturer's factory has on-premises Windows and Linux applications that read and write files on network shares over SMB and NFS. The company wants the files stored durably in S3 while the applications keep using the shares unchanged, and recently used files must open quickly from a cache on site. Which solution should the architect deploy?"""
+options = [
+  "An S3 File Gateway virtual appliance in the factory data center.",
+  "A Volume Gateway with cached volumes presented over iSCSI.",
+  "Amazon FSx for Windows File Server reached over AWS Direct Connect.",
+  "A nightly AWS DataSync task that copies the shares to S3.",
+]
+answer = ["A"]
+explain = { A = "Correct. S3 File Gateway exposes NFS and SMB shares on site, stores each file as an S3 object, and keeps recently used data in a local cache.", B = "Volume Gateway presents block volumes over iSCSI, not file shares, and the applications expect shares.", C = "FSx for Windows File Server holds data in FSx and not in S3, and it has no local cache in the factory.", D = "DataSync copies data on a schedule and does not provide a share that applications can keep using, nor a local cache." }
+ref = "week_04_storage/concepts/05_fsx_gateway_and_choosing.md"

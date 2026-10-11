@@ -1,0 +1,515 @@
+[[question]]
+id = "w05-q01"
+domain = 2
+task = "2.2"
+services = ["Amazon RDS", "Multi-AZ"]
+kind = "single"
+stem = """A logistics company runs its order database on a Single-AZ Amazon RDS for MySQL instance. After an Availability Zone disruption the database was unavailable for hours. The company wants the database to fail over to another Availability Zone automatically, keep the same endpoint name, and need no application code changes. Read scaling is not needed. Which solution meets these requirements with the LEAST change?"""
+options = [
+  "Create a read replica in a second Availability Zone and promote it by hand after an outage.",
+  "Modify the DB instance to use a Multi-AZ DB instance deployment.",
+  "Take a manual snapshot every hour and restore the newest one in another Availability Zone after an outage.",
+  "Put an RDS Proxy in front of the existing Single-AZ DB instance.",
+]
+answer = ["B"]
+explain = { A = "Promotion is manual, replication is asynchronous, and the promoted replica has its own endpoint, so the application would have to change.", B = "Correct. A Multi-AZ DB instance deployment keeps a synchronous standby in another AZ and flips the DNS name of the same endpoint on failure, with no code changes.", C = "A restore creates a new instance with a new endpoint, takes a long time, and loses up to an hour of data.", D = "A proxy pools connections but there is still only one database instance behind it, so an AZ failure still takes the database down." }
+ref = "week_05_databases_and_caching/concepts/01_rds.md"
+
+[[question]]
+id = "w05-q02"
+domain = 2
+task = "2.2"
+services = ["Amazon RDS", "Read replicas"]
+kind = "single"
+stem = """An e-commerce company runs Amazon RDS for PostgreSQL in a Multi-AZ DB instance deployment. Analysts run long reporting queries against it during business hours, and checkout latency rises. The reports can use data that is a few seconds old. The company wants to move the reporting load off the primary instance without changing the schema or the checkout application. Which solution meets these requirements?"""
+options = [
+  "Point the reporting tool at the standby instance of the Multi-AZ deployment.",
+  "Add an RDS Proxy and route the reporting sessions through it.",
+  "Create a read replica and point the reporting tool at the replica's endpoint.",
+  "Move the DB instance to a larger memory optimized instance class.",
+]
+answer = ["C"]
+explain = { A = "The standby of a Multi-AZ DB instance deployment cannot serve read traffic.", B = "A proxy shares connections, but every query still runs on the primary instance.", C = "Correct. A read replica is an asynchronous copy that serves read-only queries, so the reports no longer compete with checkout.", D = "A bigger instance still runs reports and checkout on the same database, so they keep competing and the bill rises." }
+ref = "week_05_databases_and_caching/concepts/01_rds.md"
+
+[[question]]
+id = "w05-q03"
+domain = 2
+task = "2.2"
+services = ["Amazon RDS", "Cross-Region read replicas"]
+kind = "single"
+stem = """A media company runs Amazon RDS for MySQL in us-east-1. Its disaster recovery plan needs a continuously updated copy of the data in eu-west-1, and the team accepts promoting that copy by hand during a Regional outage. The company wants to keep using RDS for MySQL rather than migrate to Aurora. Which solution meets these requirements?"""
+options = [
+  "Create a cross-Region read replica in eu-west-1 and promote it if us-east-1 fails.",
+  "Enable Multi-AZ on the DB instance and choose a subnet in eu-west-1 for the standby.",
+  "Copy a manual snapshot to eu-west-1 once a week and restore it if us-east-1 fails.",
+  "Create a read replica in another Availability Zone of us-east-1 and promote it if the Region fails.",
+]
+answer = ["A"]
+explain = { A = "Correct. A cross-Region read replica receives asynchronous replication continuously and can be promoted to a standalone writable instance in the other Region.", B = "A Multi-AZ standby always lives in the same Region as the primary.", C = "A weekly snapshot copy is not a continuously updated copy; up to a week of data would be lost.", D = "A replica in the same Region goes down with the Region, so it gives no disaster recovery for a Regional outage." }
+ref = "week_05_databases_and_caching/concepts/01_rds.md"
+
+[[question]]
+id = "w05-q04"
+domain = 2
+task = "2.2"
+services = ["Amazon RDS", "Multi-AZ DB cluster"]
+kind = "single"
+stem = """A gaming company runs Amazon RDS for PostgreSQL in a Multi-AZ DB instance deployment. The standby cannot serve reads, and failovers take longer than the company would like. The company wants two standby copies in separate Availability Zones that can also serve read queries, with noticeably faster failover, and it wants to stay on RDS for PostgreSQL. Which change meets these requirements?"""
+options = [
+  "Add two read replicas in other Availability Zones and keep the Multi-AZ DB instance deployment.",
+  "Move the database to a larger instance class and keep the Multi-AZ DB instance deployment.",
+  "Keep the Multi-AZ DB instance deployment and put RDS Proxy in front of it.",
+  "Migrate the database to a Multi-AZ DB cluster deployment.",
+]
+answer = ["D"]
+explain = { A = "Read replicas give readable copies, but they are not automatic failover targets and the instance's failover is no faster.", B = "A larger instance class does not change how failover works or make the standby readable.", C = "A proxy can shorten the time clients take to reconnect, but the standby stays unreadable and there is still only one standby.", D = "Correct. A Multi-AZ DB cluster has a writer and two readable standbys in three AZs, with failover typically under 35 seconds." }
+ref = "week_05_databases_and_caching/concepts/01_rds.md"
+
+[[question]]
+id = "w05-q05"
+domain = 2
+task = "2.2"
+services = ["Amazon RDS", "AWS KMS", "Snapshots"]
+kind = "single"
+stem = """A compliance audit finds that a production Amazon RDS for MySQL database was created without encryption at rest. The company must encrypt it with an AWS KMS key and can accept a short cutover window. Which approach should the architect use?"""
+options = [
+  "Modify the DB instance to turn on encryption at rest with a KMS key during the next maintenance window.",
+  "Take a snapshot, copy it with encryption enabled under a KMS key, and restore a new DB instance from the copy.",
+  "Create a read replica with encryption enabled in the console, then promote it to a standalone instance.",
+  "Turn on encryption in the DB parameter group and reboot the instance to apply the new setting.",
+]
+answer = ["B"]
+explain = { A = "Encryption at rest can only be chosen when a DB instance is created; a modify action cannot enable it.", B = "Correct. An unencrypted snapshot can be copied with encryption turned on, and restoring that copy gives an encrypted DB instance.", C = "An encrypted read replica cannot be created from an unencrypted source instance.", D = "Encryption is not a parameter group setting, so a reboot changes nothing." }
+ref = "week_05_databases_and_caching/concepts/01_rds.md"
+
+[[question]]
+id = "w05-q06"
+domain = 2
+task = "2.2"
+services = ["Amazon RDS", "Automated backups", "Point-in-time restore"]
+kind = "single"
+stem = """At 14:20 a developer ran an UPDATE without a WHERE clause on the orders table of a production Amazon RDS for PostgreSQL database that has automated backups enabled with 7-day retention. The mistake was found at 14:30. The company wants the data as it was just before 14:20 and wants the current instance left running while the team recovers the affected rows. Which action should the architect take?"""
+options = [
+  "Restore the database to 14:19 with point-in-time recovery.",
+  "Restore the most recent daily automated snapshot.",
+  "Reboot the DB instance with failover to the standby.",
+  "Use Backtrack to rewind the database to 14:19.",
+]
+answer = ["A"]
+explain = { A = "Correct. Point-in-time recovery always restores to a new DB instance, so the original keeps running while the affected rows are copied back.", B = "The daily snapshot loses all changes made since it was taken, and a restore never overwrites the existing instance.", C = "The standby is synchronous, so it already contains the bad UPDATE.", D = "Backtrack exists only for Aurora MySQL, not for RDS for PostgreSQL." }
+ref = "week_05_databases_and_caching/concepts/01_rds.md"
+
+[[question]]
+id = "w05-q07"
+domain = 1
+task = "1.3"
+services = ["Amazon RDS", "AWS Secrets Manager", "AWS IAM"]
+kind = "single"
+stem = """A healthtech company is creating a new Amazon RDS for PostgreSQL database. Security policy forbids database passwords and long-term access keys in application code or configuration files, requires the master password to rotate automatically, and asks for the least operational work. Which solution meets these requirements?"""
+options = [
+  "Store the password in a Secrets Manager secret and rotate it with a Lambda function the team writes and maintains.",
+  "Store the password as a Parameter Store SecureString parameter and change it with a scheduled script.",
+  "Pass the password as a NoEcho CloudFormation parameter and change it each quarter.",
+  "Create the DB instance with RDS-managed master user credentials in Secrets Manager.",
+]
+answer = ["D"]
+explain = { A = "This works, but the team owns and maintains the rotation code, which is more operational work than the managed option.", B = "A SecureString protects storage, but rotation depends on a script the team must write, run and keep in sync with the database.", C = "NoEcho only hides the value in the console; the password is still supplied by hand and rotated manually.", D = "Correct. RDS generates the master password, stores it in Secrets Manager and rotates it on a schedule, and applications read it through their IAM role." }
+ref = "week_05_databases_and_caching/concepts/01_rds.md"
+
+[[question]]
+id = "w05-q08"
+domain = 3
+task = "3.3"
+services = ["RDS Proxy", "AWS Lambda", "Amazon RDS"]
+kind = "single"
+stem = """A company runs a Lambda-based API that writes to an Amazon RDS for MySQL database. During traffic bursts, thousands of concurrent function instances each open their own connection, and the database reports too many connections while its CPU stays low. The database instance size must stay the same to control cost, and code changes must be minimal. Which solution should the architect implement?"""
+options = [
+  "Add a read replica and send half of the function connections to it.",
+  "Convert the DB instance to a Multi-AZ DB instance deployment.",
+  "Create an RDS Proxy for the database and have the functions connect to the proxy endpoint.",
+  "Move the database to a larger memory optimized instance class to raise the connection limit.",
+]
+answer = ["C"]
+explain = { A = "A replica accepts only reads, and the writes would still open too many connections on the primary.", B = "A standby does not serve connections, so the primary's connection limit is unchanged.", C = "Correct. RDS Proxy pools and shares database connections, so a burst of Lambda invocations no longer exhausts the database's connection limit.", D = "A larger class raises the limit, but it breaks the requirement to keep the instance size and costs more." }
+ref = "week_05_databases_and_caching/concepts/01_rds.md"
+
+[[question]]
+id = "w05-q09"
+domain = 3
+task = "3.3"
+services = ["Amazon RDS", "Deletion protection", "Snapshots"]
+kind = "multi"
+choose = 2
+stem = """A company's production Amazon RDS for MySQL database was deleted by mistake during a cleanup of a test account. The company wants to prevent a repeat: a delete request must be refused unless someone first turns off a safeguard on purpose, and if the instance is ever deleted a restorable copy of its data must remain. Which combination of steps meets these requirements? (Select TWO.)"""
+options = [
+  "Raise the automated backup retention period to the maximum.",
+  "Convert the DB instance to a Multi-AZ DB instance deployment.",
+  "Turn on deletion protection for the DB instance.",
+  "Turn on Enhanced Monitoring for the DB instance.",
+  "Take a final DB snapshot whenever the instance is deleted.",
+]
+answer = ["C", "E"]
+explain = { A = "Automated backups are removed together with the instance unless they are retained separately, and a longer retention does not stop the delete.", B = "The standby is deleted along with the primary, so Multi-AZ gives no protection against deletion.", C = "Correct. With deletion protection on, delete requests fail until the setting is turned off.", D = "Enhanced Monitoring shows operating system metrics and has no effect on deletion.", E = "Correct. A final snapshot is kept after the instance is deleted, so the data can be restored." }
+ref = "week_05_databases_and_caching/concepts/01_rds.md"
+
+[[question]]
+id = "w05-q10"
+domain = 3
+task = "3.3"
+services = ["Amazon Aurora", "Aurora Replicas"]
+kind = "single"
+stem = """A SaaS company runs a MySQL-compatible Amazon Aurora cluster with a single writer instance. A new dashboard feature has pushed read traffic until the writer is saturated. The dashboard can tolerate slightly stale data. The company wants to scale reads without the application keeping a list of individual database hosts. Which solution meets these requirements?"""
+options = [
+  "Add Aurora Replicas to the cluster and have the dashboard connect to the cluster's reader endpoint.",
+  "Add Aurora Replicas to the cluster and have the dashboard connect to the cluster endpoint.",
+  "Add Aurora Replicas to the cluster and have the dashboard rotate through each replica's instance endpoint.",
+  "Move the writer to a larger instance class and keep the dashboard on the cluster endpoint.",
+]
+answer = ["A"]
+explain = { A = "Correct. Aurora Replicas share the cluster volume, and the reader endpoint load-balances read-only connections across them, so the application needs only one name.", B = "The cluster endpoint always points at the writer, so the dashboard would still read from the saturated instance.", C = "This spreads reads, but the application would have to maintain and update a list of replica endpoints, which the company wants to avoid.", D = "A bigger writer helps for a while but does not scale reads out, and reads keep competing with writes." }
+ref = "week_05_databases_and_caching/concepts/02_aurora.md"
+
+[[question]]
+id = "w05-q11"
+domain = 2
+task = "2.2"
+services = ["Amazon Aurora", "Aurora Global Database"]
+kind = "single"
+stem = """A payments company runs Amazon Aurora PostgreSQL in us-east-1. Regulators require a disaster recovery design in ap-southeast-1 that replicates data with storage-level replication lag of typically under a second, serves low-latency local reads there, and can be promoted within minutes after a Regional outage. Which solution meets these requirements?"""
+options = [
+  "Copy automated snapshots to ap-southeast-1 every hour and restore the newest one after an outage.",
+  "Add an Aurora Replica in ap-southeast-1 to the existing cluster.",
+  "Use AWS DMS to replicate continuously into a new Aurora cluster in ap-southeast-1.",
+  "Convert the cluster to an Aurora Global Database and add ap-southeast-1 as a secondary Region.",
+]
+answer = ["D"]
+explain = { A = "Hourly snapshot copies lose up to an hour of data and take a long time to restore.", B = "An Aurora cluster lives in one Region; its replicas cannot be placed in another Region.", C = "DMS can replicate data, but it is a separate service to run and monitor, and it does not use Aurora's storage-level replication with promotion built in.", D = "Correct. Aurora Global Database replicates at the storage layer to read-only secondary Regions with typical lag under a second, and a secondary can be promoted in minutes." }
+ref = "week_05_databases_and_caching/concepts/02_aurora.md"
+
+[[question]]
+id = "w05-q12"
+domain = 4
+task = "4.3"
+services = ["Amazon Aurora", "Aurora Serverless v2"]
+kind = "single"
+stem = """A software team uses an Amazon Aurora MySQL-compatible database for development. Developers use it about three hours on weekdays, and it sits idle overnight and on weekends. The team wants to avoid paying for database compute while it is idle and accepts a short delay on the first connection after an idle period. Which configuration is the MOST cost-effective?"""
+options = [
+  "Run a small provisioned writer with a one-year Reserved Instance commitment.",
+  "Use Aurora Serverless v2 with the minimum capacity set to 0 ACUs.",
+  "Use Aurora Serverless v2 with the minimum capacity set to 0.5 ACUs.",
+  "Run a provisioned writer and add Aurora Auto Scaling for replicas.",
+]
+answer = ["B"]
+explain = { A = "A reserved instance lowers the hourly rate but is still billed around the clock, including the idle hours.", B = "Correct. A 0 ACU minimum turns on auto-pause after the idle time, so there is no compute charge while paused (storage is still billed), and the database resumes in about 15 seconds.", C = "This scales automatically, but the 0.5 ACU floor is billed all day, so it costs more than pausing.", D = "Replicas add cost, and the writer still runs and bills during the idle hours." }
+ref = "week_05_databases_and_caching/concepts/02_aurora.md"
+
+[[question]]
+id = "w05-q13"
+domain = 3
+task = "3.3"
+services = ["Amazon Aurora", "Aurora cloning"]
+kind = "single"
+stem = """A retailer needs a full copy of its multi-terabyte Aurora MySQL production cluster for a two-day performance test in the same account and Region. The copy must be ready within minutes, must not slow production, and should use as little extra storage as possible at first. Which solution meets these requirements?"""
+options = [
+  "Restore the latest automated backup to a new Aurora cluster.",
+  "Export a snapshot to Amazon S3 and import it into a new Aurora cluster.",
+  "Create an Aurora clone of the production cluster.",
+  "Add a secondary cluster to a Global Database and detach it for the test.",
+]
+answer = ["C"]
+explain = { A = "A restore copies the data into new storage, which takes much longer for a multi-terabyte volume and uses full extra storage.", B = "Exporting and importing moves all the data twice and takes far longer than minutes.", C = "Correct. A clone uses copy-on-write at the storage layer, so it is created quickly and allocates extra storage only as data pages change.", D = "A detached secondary receives a full copy of the data and requires a Global Database, which costs more and takes longer." }
+ref = "week_05_databases_and_caching/concepts/02_aurora.md"
+
+[[question]]
+id = "w05-q14"
+domain = 4
+task = "4.3"
+services = ["Amazon Aurora", "Aurora I/O-Optimized"]
+kind = "single"
+stem = """A company runs a write-heavy Amazon Aurora PostgreSQL cluster on Aurora Standard storage. Charges per million I/O requests are now the largest line on the monthly Aurora bill, and the I/O volume is steady from month to month. The company wants the MOST cost-effective change that needs no application changes. What should it do?"""
+options = [
+  "Change the cluster's storage configuration to Aurora I/O-Optimized.",
+  "Add Aurora Replicas so the I/O is spread across more instances.",
+  "Move to Aurora Serverless v2 with a higher minimum capacity.",
+  "Move the writer to a larger instance class so more data fits in memory.",
+]
+answer = ["A"]
+explain = { A = "Correct. Aurora I/O-Optimized has no per-request I/O charge, and it is the better value when I/O spending is a large share (25 percent or more) of the total bill.", B = "Replicas add instance cost, and the writer's I/O is still billed per request.", C = "Serverless v2 changes how compute is billed, not the per-request I/O charge.", D = "More memory may reduce some reads but costs more per hour, and the write I/O charges remain." }
+ref = "week_05_databases_and_caching/concepts/02_aurora.md"
+
+[[question]]
+id = "w05-q15"
+domain = 3
+task = "3.3"
+services = ["Amazon DynamoDB", "On-demand capacity"]
+kind = "single"
+stem = """A startup is launching a mobile game backend on a new Amazon DynamoDB table. Nobody can predict launch traffic: it could stay quiet for hours and then spike sharply after a social media campaign. The team wants no capacity planning, no throttling from underestimating traffic, and to pay only for requests actually made. Which capacity setting should the team choose?"""
+options = [
+  "Provisioned capacity with a high fixed number of read and write capacity units.",
+  "Provisioned capacity with Application Auto Scaling and a target utilization of 70 percent.",
+  "Provisioned capacity with reserved capacity purchased for one year.",
+  "On-demand capacity mode.",
+]
+answer = ["D"]
+explain = { A = "Fixed capacity is billed every hour whether it is used or not, and a sharp spike can still exceed it.", B = "Auto scaling reacts after consumption breaches the target, so a sudden spike can throttle before capacity catches up, and it still needs min and max planning.", C = "Reserved capacity is a commitment for steady provisioned usage, the opposite of unpredictable traffic.", D = "Correct. On-demand mode needs no capacity planning, absorbs spikes, and bills per request." }
+ref = "week_05_databases_and_caching/concepts/03_dynamodb.md"
+
+[[question]]
+id = "w05-q16"
+domain = 4
+task = "4.3"
+services = ["Amazon DynamoDB", "Application Auto Scaling"]
+kind = "single"
+stem = """An analytics company's DynamoDB table receives a steady, predictable load that rises gradually each business morning and falls at night, with the same pattern every week. The table uses on-demand capacity mode. The company wants to lower its DynamoDB throughput cost while still avoiding throttling. Which change is the MOST cost-effective?"""
+options = [
+  "Keep on-demand mode and configure a maximum throughput limit on the table.",
+  "Switch to provisioned capacity mode with Application Auto Scaling target tracking.",
+  "Switch to provisioned capacity mode with fixed capacity set to the weekly peak at all times.",
+  "Move the table to the DynamoDB Standard-IA table class.",
+]
+answer = ["B"]
+explain = { A = "A throughput cap controls spending but risks throttling, and per-request pricing stays higher than provisioned for a steady load.", B = "Correct. Provisioned capacity costs less per unit for a steady, predictable load, and auto scaling follows the daily curve so the table is not paying for peak capacity all night.", C = "This avoids throttling but pays for peak capacity around the clock, which costs more than following the curve.", D = "Standard-IA lowers storage cost, not throughput cost, and helps only when storage dominates the bill." }
+ref = "week_05_databases_and_caching/concepts/03_dynamodb.md"
+
+[[question]]
+id = "w05-q17"
+domain = 3
+task = "3.3"
+services = ["Amazon DynamoDB", "Global secondary index"]
+kind = "single"
+stem = """A company stores orders in a production DynamoDB table with partition key customerId and sort key orderDate. A new feature must list all orders with a given status, such as SHIPPED, sorted by shipDate, without scanning the table. The table already holds data and cannot be re-created. What should the architect do?"""
+options = [
+  "Add a local secondary index with partition key status and sort key shipDate.",
+  "Run a Scan with a filter expression on status and sort the results in the application.",
+  "Add a global secondary index with partition key status and sort key shipDate.",
+  "Modify the table's primary key to use status as the partition key and shipDate as the sort key.",
+]
+answer = ["C"]
+explain = { A = "A local secondary index must share the base table's partition key and can only be created together with the table.", B = "A Scan reads every item and charges for all of it, since the filter runs after the read.", C = "Correct. A global secondary index can use a different partition key and sort key and can be added to an existing table at any time.", D = "A table's primary key cannot be changed after the table is created." }
+ref = "week_05_databases_and_caching/concepts/03_dynamodb.md"
+
+[[question]]
+id = "w05-q18"
+domain = 3
+task = "3.3"
+services = ["Amazon DynamoDB", "Local secondary index"]
+kind = "single"
+stem = """A team built a DynamoDB table with partition key deviceId and sort key timestamp. Months later it must query one device's readings by a different sort key, batteryLevel, using strongly consistent reads. The team did not define a local secondary index when it created the table. What must the team do?"""
+options = [
+  "Create a new table that includes the local secondary index, copy the data into it, and switch the application over.",
+  "Add the local secondary index to the existing table with an UpdateTable call.",
+  "Add a global secondary index on deviceId and batteryLevel and request strongly consistent reads from it.",
+  "Query the base table with a filter expression on batteryLevel to get results ordered by it.",
+]
+answer = ["A"]
+explain = { A = "Correct. A local secondary index can only be defined at table creation, so the data must move to a new table that has one.", B = "UpdateTable can add global secondary indexes but cannot add a local secondary index.", C = "A global secondary index supports only eventually consistent reads.", D = "A filter expression only discards items after they are read; it neither reorders results nor uses a different sort key." }
+ref = "week_05_databases_and_caching/concepts/03_dynamodb.md"
+
+[[question]]
+id = "w05-q19"
+domain = 3
+task = "3.3"
+services = ["Amazon DynamoDB", "Conditional writes"]
+kind = "single"
+stem = """Two instances of an inventory service read the same DynamoDB item and may both try to update its quantity. The company wants an update to be rejected when another writer changed the item after it was read, and it does not want to add a separate locking service. Which approach meets this requirement?"""
+options = [
+  "Use strongly consistent reads before every update.",
+  "Enable DynamoDB Streams and have a Lambda function reconcile conflicting updates.",
+  "Submit the competing updates together in one BatchWriteItem request.",
+  "Keep a version attribute and send UpdateItem with a condition that the stored version equals the version that was read.",
+]
+answer = ["D"]
+explain = { A = "A strongly consistent read returns current data, but the item can still change between the read and the write.", B = "Streams report changes after they happen; they cannot reject the second write.", C = "BatchWriteItem is not atomic and does not check whether an item changed since it was read.", D = "Correct. This is optimistic locking: a failed condition raises ConditionalCheckFailedException and the writer must re-read and retry." }
+ref = "week_05_databases_and_caching/concepts/03_dynamodb.md"
+
+[[question]]
+id = "w05-q20"
+domain = 3
+task = "3.3"
+services = ["Amazon DynamoDB", "Transactions"]
+kind = "single"
+stem = """A banking application moves funds by decrementing the balance in one DynamoDB item and incrementing it in a second item, both in the same table and Region. Either both changes must be applied or neither. Which API should the developer use?"""
+options = [
+  "BatchWriteItem with one request for each of the two items.",
+  "TransactWriteItems with an update action for each of the two items.",
+  "Two sequential UpdateItem calls, each with a condition expression.",
+  "Two UpdateItem calls, with a Lambda function on the stream undoing the first if the second fails.",
+]
+answer = ["B"]
+explain = { A = "Batch writes are not atomic; one request can succeed while the other fails.", B = "Correct. TransactWriteItems is all-or-nothing and ACID across multiple items.", C = "Conditions protect each item separately; if the second call fails, the first change stays applied.", D = "A compensating rollback is eventually consistent and can fail, so it does not guarantee that both changes or neither are applied." }
+ref = "week_05_databases_and_caching/concepts/03_dynamodb.md"
+
+[[question]]
+id = "w05-q21"
+domain = 4
+task = "4.3"
+services = ["Amazon DynamoDB", "Time to Live"]
+kind = "single"
+stem = """An online retailer stores shopping sessions as items in a DynamoDB table. Each session should disappear about a day after its last activity. The application ignores expired sessions it happens to read, so deletion can lag. The company wants no write-capacity cost for the cleanup and no custom code. Which solution meets these requirements?"""
+options = [
+  "Run a scheduled Lambda function that scans the table and deletes sessions older than a day.",
+  "Stream table changes to a Lambda function that deletes each session after a day.",
+  "Enable Time to Live on the table using an attribute that holds the expiry time in epoch seconds.",
+  "Enable point-in-time recovery with a retention period of one day.",
+]
+answer = ["C"]
+explain = { A = "A scan consumes read capacity and each delete consumes write capacity, and it needs custom code.", B = "The function would need its own scheduling and delete calls, which consume write capacity.", C = "Correct. TTL removes expired items in the background without consuming write throughput; deletion can lag but expired items are simply ignored.", D = "Point-in-time recovery keeps backups for restores and does not delete items from the table." }
+ref = "week_05_databases_and_caching/concepts/03_dynamodb.md"
+
+[[question]]
+id = "w05-q22"
+domain = 3
+task = "3.3"
+services = ["Amazon DynamoDB", "DAX"]
+kind = "single"
+stem = """A news site's read-heavy DynamoDB table serves the same popular articles over and over through GetItem calls. Reads must come back in microseconds, eventual consistency is acceptable, and the team wants as few application code changes as possible. Which solution meets these requirements?"""
+options = [
+  "Deploy a DAX cluster and point the application at the DAX endpoint using the DAX client.",
+  "Deploy an ElastiCache for Valkey cluster and rewrite the application to check it first and load it on a miss.",
+  "Raise the table's provisioned read capacity units to a much higher value.",
+  "Switch the table to on-demand capacity mode.",
+]
+answer = ["A"]
+explain = { A = "Correct. DAX is a write-through, DynamoDB-compatible in-memory cache with microsecond reads, and it needs only the DAX client and a new endpoint.", B = "This can work, but the application must implement the lazy-loading logic and handle invalidation, which is much more code.", C = "More capacity avoids throttling but reads still take single-digit milliseconds, not microseconds.", D = "On-demand mode changes billing and scaling, not read latency." }
+ref = "week_05_databases_and_caching/concepts/04_caching_elasticache_dax.md"
+
+[[question]]
+id = "w05-q23"
+domain = 3
+task = "3.3"
+services = ["Amazon ElastiCache", "Caching strategies"]
+kind = "multi"
+choose = 2
+stem = """A company caches product data in Amazon ElastiCache using lazy loading. Prices change in the database several times a day, but the cache keeps returning old prices to shoppers for long periods. Cache memory is also filling up with products that no one views anymore. Which combination of changes addresses both problems? (Select TWO.)"""
+options = [
+  "Enable Multi-AZ with automatic failover on the cache cluster.",
+  "Update the cache whenever the database record is written.",
+  "Add more read replicas to the cache cluster.",
+  "Set an expiry time on the cached keys.",
+  "Move the cache to a larger node type.",
+]
+answer = ["B", "D"]
+explain = { A = "Multi-AZ failover improves availability and does nothing about stale or unused data.", B = "Correct. Write-through keeps the cache current whenever the database changes.", C = "Replicas add read capacity and still replicate the stale values.", D = "Correct. A TTL expires stale keys and clears out entries nobody reads, so memory is reclaimed.", E = "A larger node holds more data, including stale and unused entries, and fixes neither problem." }
+ref = "week_05_databases_and_caching/concepts/04_caching_elasticache_dax.md"
+
+[[question]]
+id = "w05-q24"
+domain = 3
+task = "3.3"
+services = ["Amazon ElastiCache", "Elastic Load Balancing"]
+kind = "single"
+stem = """A company runs a stateless web fleet on EC2 instances behind an Application Load Balancer. Sessions are kept in each instance's memory, so users are signed out when instances terminate. The company needs one shared session store with sub-millisecond reads, where each session expires automatically after 30 idle minutes. Which solution meets these requirements?"""
+options = [
+  "Enable load balancer stickiness on the target group.",
+  "Store sessions in an RDS for MySQL table and delete old rows with a scheduled job.",
+  "Store sessions as files on an Amazon EFS file system mounted by every instance.",
+  "Store sessions in ElastiCache for Valkey with an expiry set on each session key.",
+]
+answer = ["D"]
+explain = { A = "Stickiness pins users to an instance, but sessions are still lost when that instance terminates.", B = "A relational table works, but reads are slower than sub-millisecond and expiry needs a custom job.", C = "EFS adds file-system latency well above sub-millisecond and has no per-item expiry.", D = "Correct. An in-memory store gives sub-millisecond reads to the whole fleet, and a TTL per key expires idle sessions on its own." }
+ref = "week_05_databases_and_caching/concepts/04_caching_elasticache_dax.md"
+
+[[question]]
+id = "w05-q25"
+domain = 2
+task = "2.2"
+services = ["Amazon ElastiCache", "Valkey", "Multi-AZ"]
+kind = "multi"
+choose = 2
+stem = """A company runs a leaderboard on a single-node ElastiCache for Valkey cache. When the node's Availability Zone failed, the cache came back empty and the database was overwhelmed. The company wants the cache to survive the loss of an Availability Zone, with an existing copy of the data promoted automatically and the primary endpoint staying the same. Which combination of steps meets these requirements? (Select TWO.)"""
+options = [
+  "Add at least one read replica in a different Availability Zone than the primary.",
+  "Switch to Memcached and add a node in each Availability Zone.",
+  "Move the node to a larger node type with more memory.",
+  "Schedule a daily backup and restore it into a new cache after a failure.",
+  "Enable Multi-AZ with automatic failover on the replication group.",
+]
+answer = ["A", "E"]
+explain = { A = "Correct. A replica in another AZ holds a copy of the data that can be promoted.", B = "Memcached has no replication or failover; a lost node's data is simply gone.", C = "A larger node still sits in one Availability Zone and is lost with it.", D = "A restore is manual, takes time after the outage, and loses data written since the last backup.", E = "Correct. Automatic failover promotes the replica with the least lag, and the primary endpoint's DNS name is updated." }
+ref = "week_05_databases_and_caching/concepts/04_caching_elasticache_dax.md"
+
+[[question]]
+id = "w05-q26"
+domain = 3
+task = "3.3"
+services = ["Amazon ElastiCache", "Memcached"]
+kind = "single"
+stem = """A content site needs a simple object cache for rendered HTML fragments. All data can be rebuilt from the origin at any moment. The team wants the simplest design: a multithreaded cache that scales out by adding nodes and needs neither replication nor persistence. Which solution meets these requirements?"""
+options = [
+  "Create an ElastiCache for Valkey replication group with cluster mode enabled and two replicas per shard.",
+  "Create an ElastiCache for Memcached cluster and add nodes as demand grows.",
+  "Create a DAX cluster in front of a DynamoDB table that holds the fragments.",
+  "Create an Amazon MemoryDB cluster with Multi-AZ replication.",
+]
+answer = ["B"]
+explain = { A = "Valkey with replicas adds replication and failover that this rebuildable cache does not need, so it is not the simplest design.", B = "Correct. Memcached is the simple, multithreaded cache that scales by adding nodes and has no replication or persistence to manage.", C = "DAX only caches reads of a DynamoDB table and would add a database that is not otherwise needed.", D = "MemoryDB is a durable in-memory database with replication; it costs more and adds capabilities the cache does not need." }
+ref = "week_05_databases_and_caching/concepts/04_caching_elasticache_dax.md"
+
+[[question]]
+id = "w05-q27"
+domain = 3
+task = "3.3"
+services = ["Amazon Neptune"]
+kind = "single"
+stem = """A bank wants to detect fraud rings by finding accounts that share devices, addresses and phone numbers across several hops of relationships. Analysts must traverse these connections in near real time, and the number of relationship types keeps growing. Which solution fits this workload best?"""
+options = [
+  "Model the data in Aurora MySQL tables and join them through recursive queries.",
+  "Store each account in DynamoDB and add a global secondary index for each relationship type.",
+  "Load the data into Amazon Neptune and query it with Gremlin or openCypher.",
+  "Index every attribute in Amazon OpenSearch Service and search for matching values.",
+]
+answer = ["C"]
+explain = { A = "Multi-hop joins over many relationship tables become slow and hard to maintain as relationships multiply.", B = "A global secondary index finds items by one attribute; it cannot traverse several hops of connections.", C = "Correct. Neptune is a managed graph database built for traversing highly connected data such as fraud rings and recommendations.", D = "OpenSearch finds documents by matching text or values, not by walking multi-hop relationships." }
+ref = "week_05_databases_and_caching/concepts/05_choosing_a_database.md"
+
+[[question]]
+id = "w05-q28"
+domain = 3
+task = "3.3"
+services = ["Amazon DocumentDB"]
+kind = "single"
+stem = """A company's application uses MongoDB drivers and stores JSON-like documents on self-managed MongoDB servers on EC2. The team wants a managed database with automated backups and read replicas, and it wants to change as little application code as possible. Which solution meets these requirements?"""
+options = [
+  "Migrate the data to Amazon DocumentDB.",
+  "Migrate the data to Amazon DynamoDB.",
+  "Migrate the data to Amazon Keyspaces.",
+  "Migrate the data to Amazon RDS for PostgreSQL with JSONB columns.",
+]
+answer = ["A"]
+explain = { A = "Correct. DocumentDB is a managed, MongoDB-compatible document database, so the existing MongoDB drivers keep working with few changes.", B = "DynamoDB uses a different API and data model, so the data access layer must be rewritten.", C = "Keyspaces is Cassandra-compatible and uses CQL, not the MongoDB API, so queries must be rewritten.", D = "JSONB can store documents, but the application's MongoDB queries would all need to be rewritten as SQL." }
+ref = "week_05_databases_and_caching/concepts/05_choosing_a_database.md"
+
+[[question]]
+id = "w05-q29"
+domain = 3
+task = "3.3"
+services = ["Amazon Keyspaces"]
+kind = "single"
+stem = """A telecom company runs a self-managed Apache Cassandra cluster on EC2 and queries it with CQL. The operations team spends most of its time patching and adding nodes. The company wants a serverless service with no servers to manage while keeping its CQL queries and Cassandra drivers. Which solution meets these requirements?"""
+options = [
+  "Migrate the data to Amazon DynamoDB.",
+  "Migrate the data to Amazon DocumentDB.",
+  "Migrate the data to Amazon Neptune.",
+  "Migrate the data to Amazon Keyspaces.",
+]
+answer = ["D"]
+explain = { A = "DynamoDB is serverless but has its own API and data model, so every query would need rewriting.", B = "DocumentDB speaks the MongoDB API, not CQL.", C = "Neptune is a graph database queried with Gremlin, openCypher or SPARQL, which does not fit a wide-column workload.", D = "Correct. Keyspaces is a serverless, managed, Cassandra-compatible service, so CQL queries and Cassandra drivers keep working." }
+ref = "week_05_databases_and_caching/concepts/05_choosing_a_database.md"
+
+[[question]]
+id = "w05-q30"
+domain = 4
+task = "4.3"
+services = ["Amazon DynamoDB", "Amazon RDS"]
+kind = "single"
+stem = """A company's session-profile service does only simple reads and writes by user ID, at very high request rates at peak. It runs on a very large RDS for MySQL instance with several read replicas, and the monthly cost is high. The service needs single-digit millisecond latency and uses no joins or multi-table queries. The company wants to cut cost and operational effort while handling the load. Which solution is the MOST cost-effective?"""
+options = [
+  "Move the database to an even larger instance class and add more read replicas.",
+  "Migrate the data to DynamoDB with the user ID as the partition key.",
+  "Migrate the data to Aurora MySQL with the maximum number of Aurora Replicas.",
+  "Place an ElastiCache for Valkey cache in front of the existing RDS instance.",
+]
+answer = ["B"]
+explain = { A = "A larger instance and more replicas can carry more load, but cost rises further and writes still go to a single primary.", B = "Correct. A key-value access pattern at very high rates fits DynamoDB, which scales horizontally with no instances to manage and avoids paying for a large relational server.", C = "Aurora scales reads with replicas, but writes still go to one writer and the cluster would still be a large, expensive relational deployment.", D = "A cache absorbs repeat reads but adds cost, leaves writes on the large instance, and keeps the expensive database." }
+ref = "week_05_databases_and_caching/concepts/05_choosing_a_database.md"

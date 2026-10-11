@@ -1,0 +1,289 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: shortly-infra M02 - network (VPC, three tiers in two AZs, NAT, security groups, endpoints, flow logs)
+
+Parameters:
+  Prefix:
+    Type: String
+    Default: shortly
+    AllowedPattern: '[a-z][a-z0-9-]{1,20}'
+  Env:
+    Type: String
+    AllowedValues: [lab, prod]
+  VpcCidr:
+    Type: String
+    Default: 10.20.0.0/16
+
+Conditions:
+  IsProd: !Equals [!Ref Env, prod]
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - {Key: Name, Value: !Sub '${Prefix}-vpc'}
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+
+  # ── subnets: app /22s first (biggest), then public and data /24s ─────
+  AppSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Select [0, !Cidr [!Ref VpcCidr, 2, 10]]
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-app-a'}]
+  AppSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Select [1, !Cidr [!Ref VpcCidr, 2, 10]]
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-app-b'}]
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Select [8, !Cidr [!Ref VpcCidr, 12, 8]]
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-public-a'}]
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Select [9, !Cidr [!Ref VpcCidr, 12, 8]]
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-public-b'}]
+  DataSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Select [10, !Cidr [!Ref VpcCidr, 12, 8]]
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-data-a'}]
+  DataSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Select [11, !Cidr [!Ref VpcCidr, 12, 8]]
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-data-b'}]
+
+  # ── internet access ─────────────────────────────────────────────────
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-igw'}]
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  NatEipA:
+    Type: AWS::EC2::EIP
+    DependsOn: GatewayAttachment
+    Properties:
+      Domain: vpc
+  NatGatewayA:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      AllocationId: !GetAtt NatEipA.AllocationId
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-nat-a'}]
+  NatEipB:
+    Type: AWS::EC2::EIP
+    Condition: IsProd
+    DependsOn: GatewayAttachment
+    Properties:
+      Domain: vpc
+  NatGatewayB:
+    Type: AWS::EC2::NatGateway
+    Condition: IsProd
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      AllocationId: !GetAtt NatEipB.AllocationId
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-nat-b'}]
+
+  # ── route tables ────────────────────────────────────────────────────
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-public'}]
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  AppRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-app-a'}]
+  AppDefaultRouteA:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref AppRouteTableA
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayA
+  AppRouteTableB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-app-b'}]
+  AppDefaultRouteB:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref AppRouteTableB
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !If [IsProd, !Ref NatGatewayB, !Ref NatGatewayA]   # lab: one NAT to save money
+  DataRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{Key: Name, Value: !Sub '${Prefix}-data'}]
+
+  PublicSubnetARoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref PublicSubnetA, RouteTableId: !Ref PublicRouteTable}
+  PublicSubnetBRoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref PublicSubnetB, RouteTableId: !Ref PublicRouteTable}
+  AppSubnetARoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref AppSubnetA, RouteTableId: !Ref AppRouteTableA}
+  AppSubnetBRoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref AppSubnetB, RouteTableId: !Ref AppRouteTableB}
+  DataSubnetARoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref DataSubnetA, RouteTableId: !Ref DataRouteTable}
+  DataSubnetBRoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref DataSubnetB, RouteTableId: !Ref DataRouteTable}
+
+  # ── security groups: internet → ALB → app → database / cache ────────
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Load balancer - HTTPS from anywhere
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0}
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0}
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: App servers - only from the load balancer
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 8000, ToPort: 8000, SourceSecurityGroupId: !Ref AlbSecurityGroup}
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PostgreSQL - only from the app servers
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref AppSecurityGroup}
+  CacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Redis - only from the app servers
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 6379, ToPort: 6379, SourceSecurityGroupId: !Ref AppSecurityGroup}
+
+  # ── gateway endpoints: S3 and DynamoDB without NAT, free ────────────
+  S3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Gateway
+      VpcId: !Ref Vpc
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      RouteTableIds: [!Ref AppRouteTableA, !Ref AppRouteTableB, !Ref DataRouteTable]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: OnlyThisAccountsBuckets
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:*'
+            Resource: '*'
+            Condition:
+              StringEquals: {'aws:ResourceAccount': !Ref 'AWS::AccountId'}
+  DynamoDbEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Gateway
+      VpcId: !Ref Vpc
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.dynamodb'
+      RouteTableIds: [!Ref AppRouteTableA, !Ref AppRouteTableB, !Ref DataRouteTable]
+
+  # ── flow logs ───────────────────────────────────────────────────────
+  FlowLogsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${Prefix}/vpc-flow-logs'
+      RetentionInDays: 30
+  FlowLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Prefix}-flow-logs'
+      Tags:
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: vpc-flow-logs.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: write-flow-logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/${Prefix}/vpc-flow-logs:*'
+  VpcFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      ResourceId: !Ref Vpc
+      ResourceType: VPC
+      TrafficType: ALL
+      LogDestinationType: cloud-watch-logs
+      LogGroupName: !Ref FlowLogsLogGroup
+      DeliverLogsPermissionArn: !GetAtt FlowLogsRole.Arn
+
+Outputs:
+  VpcId:
+    Value: !Ref Vpc
+    Export: {Name: !Sub '${Prefix}-vpc-id'}
+  PublicSubnetIds:
+    Value: !Join [',', [!Ref PublicSubnetA, !Ref PublicSubnetB]]
+    Export: {Name: !Sub '${Prefix}-public-subnet-ids'}
+  AppSubnetIds:
+    Value: !Join [',', [!Ref AppSubnetA, !Ref AppSubnetB]]
+    Export: {Name: !Sub '${Prefix}-app-subnet-ids'}
+  DataSubnetIds:
+    Value: !Join [',', [!Ref DataSubnetA, !Ref DataSubnetB]]
+    Export: {Name: !Sub '${Prefix}-data-subnet-ids'}
+  AlbSecurityGroupId:
+    Value: !GetAtt AlbSecurityGroup.GroupId
+    Export: {Name: !Sub '${Prefix}-alb-sg-id'}
+  AppSecurityGroupId:
+    Value: !GetAtt AppSecurityGroup.GroupId
+    Export: {Name: !Sub '${Prefix}-app-sg-id'}
+  DbSecurityGroupId:
+    Value: !GetAtt DbSecurityGroup.GroupId
+    Export: {Name: !Sub '${Prefix}-db-sg-id'}
+  CacheSecurityGroupId:
+    Value: !GetAtt CacheSecurityGroup.GroupId
+    Export: {Name: !Sub '${Prefix}-cache-sg-id'}

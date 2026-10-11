@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: shortly-infra M04 - storage (an assets bucket for uploads and a logs bucket for ALB access logs)
+
+Parameters:
+  Prefix:
+    Type: String
+    Default: shortly
+    AllowedPattern: '[a-z][a-z0-9-]{1,20}'
+  Env:
+    Type: String
+    AllowedValues: [lab, prod]
+
+Conditions:
+  IsProd: !Equals [!Ref Env, prod]
+
+Resources:
+  AssetsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub '${Prefix}-assets-${AWS::AccountId}'
+      Tags:
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: true
+            ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: noncurrent-versions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+              NewerNoncurrentVersions: 3
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+
+  AssetsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AssetsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt AssetsBucket.Arn
+              - !Sub '${AssetsBucket.Arn}/*'
+            Condition:
+              Bool: {'aws:SecureTransport': 'false'}
+          - Sid: AllowAppUploads
+            Effect: Allow
+            Principal:
+              AWS: !ImportValue
+                Fn::Sub: '${Prefix}-app-role-arn'
+            Action: [s3:GetObject, s3:PutObject]
+            Resource: !Sub '${AssetsBucket.Arn}/uploads/*'
+
+  LogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${Prefix}-logs-${AWS::AccountId}'
+      Tags:
+        - {Key: project, Value: !Ref Prefix}
+        - {Key: env, Value: !Ref Env}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: alb-logs
+            Status: Enabled
+            Prefix: alb/
+            Transitions:
+              - {StorageClass: STANDARD_IA, TransitionInDays: 30}
+              - {StorageClass: GLACIER_IR, TransitionInDays: 90}
+              - {StorageClass: DEEP_ARCHIVE, TransitionInDays: 180}
+            ExpirationInDays: !If [IsProd, 730, 365]
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+
+  LogsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LogsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt LogsBucket.Arn
+              - !Sub '${LogsBucket.Arn}/*'
+            Condition:
+              Bool: {'aws:SecureTransport': 'false'}
+          - Sid: AllowAlbLogDelivery
+            Effect: Allow
+            Principal:
+              Service: logdelivery.elasticloadbalancing.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub '${LogsBucket.Arn}/alb/AWSLogs/${AWS::AccountId}/*'
+
+Outputs:
+  AssetsBucketName:
+    Value: !Ref AssetsBucket
+    Export: {Name: !Sub '${Prefix}-assets-bucket'}
+  AssetsBucketArn:
+    Value: !GetAtt AssetsBucket.Arn
+    Export: {Name: !Sub '${Prefix}-assets-bucket-arn'}
+  LogsBucketName:
+    Value: !Ref LogsBucket
+    Export: {Name: !Sub '${Prefix}-logs-bucket'}
+  LogsBucketArn:
+    Value: !GetAtt LogsBucket.Arn
+    Export: {Name: !Sub '${Prefix}-logs-bucket-arn'}

@@ -1,0 +1,97 @@
+# Illustrative us-east-1 list prices for the course's cost drills — NOT a quote.
+# Check https://calculator.aws/ for real numbers. The exam tests cost reasoning, not prices.
+[meta]
+region = "us-east-1"
+as_of = "2026-10"
+
+[data_transfer]
+ingress_per_gb = 0.0               # into AWS from the internet
+egress_internet_per_gb = 0.09      # out to the internet (first 10 TB/month tier)
+inter_az_per_gb_each_way = 0.01    # between AZs in one Region: charged out AND in
+inter_region_per_gb = 0.02         # between Regions (sender pays)
+
+[[s3_standard_tiers]]              # S3 Standard storage, per GB-month
+up_to_gb = 51200                   # first 50 TB
+per_gb_month = 0.023
+
+[[s3_standard_tiers]]
+up_to_gb = 512000                  # next 450 TB
+per_gb_month = 0.022
+
+[[s3_standard_tiers]]              # over 500 TB (no upper bound)
+per_gb_month = 0.021
+
+[vpc]                                       # us-east-1, illustrative (docs/research/2026-10-10-vpc-facts.md)
+nat_gateway_per_hour = 0.045                # per NAT gateway
+nat_gateway_per_gb = 0.045                  # data processed by a NAT gateway
+gateway_endpoint_per_gb = 0.0               # S3 / DynamoDB gateway endpoints are free
+interface_endpoint_per_hour_per_az = 0.01   # PrivateLink interface endpoint, each AZ
+interface_endpoint_per_gb = 0.01
+transit_gateway_attachment_per_hour = 0.05
+transit_gateway_per_gb = 0.02
+vpn_connection_per_hour = 0.05
+public_ipv4_per_hour = 0.005
+
+[ec2]                                       # us-east-1 Linux On-Demand, illustrative (docs/research/2026-10-11-compute-facts.md)
+t4g_micro_per_hour = 0.0084
+t4g_small_per_hour = 0.0168
+t4g_medium_per_hour = 0.0336
+t3_micro_per_hour = 0.0104
+m7g_large_per_hour = 0.0816
+m7i_large_per_hour = 0.1008
+c7g_large_per_hour = 0.0725
+c7i_large_per_hour = 0.08925
+r7g_large_per_hour = 0.1071
+compute_savings_plan_discount = 0.31        # course example: AWS average 1-year Convertible RI discount (the SP FAQ: Compute SP "up to 66% (just like Convertible RIs)")
+standard_ri_discount = 0.40                 # AWS average 1-year Standard RI discount ("up to 72%")
+spot_discount = 0.70                        # course example; AWS says "up to 90%"
+alb_per_hour = 0.0225
+alb_per_lcu_hour = 0.008
+nlb_per_hour = 0.0225
+nlb_per_nlcu_hour = 0.006
+
+[storage]                                   # us-east-1, illustrative (docs/research/2026-10-12-storage-facts.md section 12)
+s3_standard_per_gb_month = 0.023            # first 50 TB tier, flat here
+s3_standard_ia_per_gb_month = 0.0125
+s3_onezone_ia_per_gb_month = 0.01
+s3_glacier_ir_per_gb_month = 0.004
+s3_glacier_flexible_per_gb_month = 0.0036
+s3_deep_archive_per_gb_month = 0.00099      # Glacier product page, Region not named: illustrative
+s3_standard_ia_retrieval_per_gb = 0.01
+s3_onezone_ia_retrieval_per_gb = 0.01
+s3_glacier_ir_retrieval_per_gb = 0.03
+s3_glacier_flexible_standard_retrieval_per_gb = 0.01
+s3_glacier_flexible_bulk_retrieval_per_gb = 0.0
+s3_deep_archive_standard_retrieval_per_gb = 0.02
+s3_deep_archive_bulk_retrieval_per_gb = 0.0025
+ebs_gp3_per_gb_month = 0.08
+ebs_gp3_per_iops_month = 0.005              # per provisioned IOPS above the free 3,000
+ebs_gp3_per_mibps_month = 0.06              # per provisioned MiB/s above the free 125 (the price page says MB/s)
+ebs_gp2_per_gb_month = 0.10
+ebs_io2_per_gb_month = 0.125
+ebs_io2_per_iops_month_first_32k = 0.065    # IOPS 1 to 32,000
+ebs_io2_per_iops_month_32k_to_64k = 0.046   # IOPS 32,001 to 64,000 (third tier is not in the research)
+ebs_st1_per_gb_month = 0.045
+ebs_sc1_per_gb_month = 0.015
+ebs_snapshot_per_gb_month = 0.05
+ebs_snapshot_archive_per_gb_month = 0.0125
+efs_standard_per_gb_month = 0.30
+efs_ia_per_gb_month = 0.025
+efs_archive_per_gb_month = 0.008
+
+[database]                                  # us-east-1 On-Demand, illustrative (docs/research/2026-10-12-database-facts.md section 6, from the AWS Price List files)
+dynamodb_on_demand_per_million_writes = 0.625
+dynamodb_on_demand_per_million_reads = 0.125
+dynamodb_wcu_hour = 0.00065                 # provisioned; the first 25 WCU are free (the course models ignore that)
+dynamodb_rcu_hour = 0.00013                 # provisioned; the first 25 RCU are free (the course models ignore that)
+dynamodb_storage_per_gb_month = 0.25        # Standard, after the first 25 GB free
+dynamodb_pitr_per_gb_month = 0.20
+rds_pg_t4g_micro_per_hour = 0.016
+rds_pg_t4g_micro_multi_az_per_hour = 0.032
+rds_pg_m7g_large_per_hour = 0.168
+rds_pg_m7g_large_multi_az_per_hour = 0.337
+rds_gp3_per_gb_month = 0.115                # Single-AZ; Multi-AZ DB instance is double
+aurora_serverless_v2_per_acu_hour = 0.12    # Standard (I/O-Optimized is 0.16)
+rds_proxy_per_vcpu_hour = 0.015
+elasticache_t4g_micro_per_hour = 0.0128     # Valkey (Redis OSS is 0.016)
+elasticache_m7g_large_per_hour = 0.1264     # Valkey (Redis OSS is 0.158)

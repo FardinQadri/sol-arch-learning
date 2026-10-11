@@ -1,0 +1,260 @@
+# Week 00 quiz bank - 15 original scenario questions. Answers/explanations live here; learners meet them through quiz.py.
+
+[[question]]
+id = "w00-q01"
+domain = 2
+task = "2.2"
+services = ["EC2", "Elastic Load Balancing", "Auto Scaling"]
+kind = "single"
+stem = """A retailer runs its order portal on four EC2 instances. All four sit in one subnet in a single Availability Zone behind an Application Load Balancer, and the database is already Multi-AZ. The business now requires the portal to keep serving customers if one Availability Zone fails. Which change meets this requirement?"""
+options = [
+  "Move the four instances to a larger instance type that offers enhanced networking and more bandwidth.",
+  "Launch the instances into a cluster placement group in the current Availability Zone.",
+  "Add a subnet in a second Availability Zone and run the instances from an Auto Scaling group that spans both subnets behind the load balancer.",
+  "Turn on EC2 automatic instance recovery for each of the four instances.",
+]
+answer = ["C"]
+ref = "week_00_foundations_and_exam_technique/concepts/04_availability_and_failure.md"
+explain = { A = "A bigger instance changes speed, not location. All four would still be lost together when the one AZ fails.", B = "A cluster placement group packs instances close together for low latency, which makes them share more of the same failure domain. It does nothing for AZ failure.", C = "Correct. A subnet lives in exactly one AZ, so you need a subnet in a second AZ. An Auto Scaling group across both subnets behind the ALB keeps serving from the surviving AZ.", D = "Instance recovery restarts an instance on other hardware in the same AZ. It cannot help when the whole AZ is unavailable." }
+
+[[question]]
+id = "w00-q02"
+domain = 2
+task = "2.2"
+services = ["EC2", "Auto Scaling"]
+kind = "single"
+stem = """A payments company needs six EC2 instances running at all times to carry its production load. The application runs in three Availability Zones. If one zone fails, the company must keep carrying the full load immediately, without relying on any new instances being launched during the failure. Which layout meets these requirements at the LOWEST cost?"""
+options = [
+  "Run two instances in each of the three zones and add a scaling policy that launches replacements in the surviving zones after a failure.",
+  "Run three instances in each of the three zones, nine in total.",
+  "Run six instances in each of two of the zones, 12 in total.",
+  "Run all six instances in one zone and keep a launch template ready to rebuild the fleet in a second zone after a failure.",
+]
+answer = ["B"]
+ref = "week_00_foundations_and_exam_technique/concepts/04_availability_and_failure.md"
+explain = { A = "This is scale on failure. Losing a zone leaves four instances, and the other two depend on launches succeeding at the moment of the outage, which the requirement rules out.", B = "Correct. This is static stability. Losing any one zone leaves six running instances already in place, and nine is the smallest total that guarantees six after losing a zone of three.", C = "Twelve instances do survive the loss of either zone with six still running and no launches, so this meets the requirement, but it pays for three more instances than B. It is not the lowest cost.", D = "Everything is in one zone, so a zone failure takes down the entire fleet. Recovery depends entirely on new launches." }
+
+[[question]]
+id = "w00-q03"
+domain = 2
+task = "2.2"
+services = ["Elastic Load Balancing", "EC2", "RDS", "S3"]
+kind = "single"
+stem = """A web application sends every request through four components in a chain. The Application Load Balancer is rated at 99.99 % availability. The app tier, spread across three Availability Zones, is 99.99 %. Amazon S3 serving the static files is 99.99 %. The relational database runs as a single Amazon RDS instance in one zone and is rated at 99.5 %. The team wants to raise the availability of the whole system. Which component limits it, and what addresses the limit?"""
+options = [
+  "The load balancer: deploy a second load balancer and alternate between the two.",
+  "The app tier: add a fourth Availability Zone and more instances.",
+  "Amazon S3: replicate the static-files bucket to a second Region.",
+  "The database tier: convert the single-AZ RDS instance to a Multi-AZ deployment.",
+]
+answer = ["D"]
+ref = "week_00_foundations_and_exam_technique/concepts/04_availability_and_failure.md"
+explain = { A = "The load balancer is already spread over several zones and is rated at 99.99 %. It is not the weakest link, so a second one adds cost for little gain.", B = "The app tier is already at 99.99 %. A fourth zone and more copies would improve a part that is not the bottleneck.", C = "S3 is a Regional service that already stores data across zones at 99.99 %. A second Region adds cost without moving the overall number.", D = "Correct. In series you multiply the availabilities, so the system can never be better than its weakest part. The single 99.5 % database is that part, and Multi-AZ gives it a standby in a second zone." }
+
+[[question]]
+id = "w00-q04"
+domain = 3
+task = "3.4"
+services = ["AWS Regions", "Amazon CloudFront"]
+kind = "single"
+stem = """A software company sells a customer-records application whose users are mostly in Singapore. A regulator has ruled that the customer records must be stored in Australia. The finance team notes that another Region is cheaper per hour for the same instances. Which choice should the architect make?"""
+options = [
+  "Deploy the application and its data in the Sydney Region, and serve static assets to users through Amazon CloudFront.",
+  "Deploy the application and its data in the Singapore Region.",
+  "Deploy the application and its data in the cheapest Region, and use CloudFront in front of it.",
+  "Deploy the application and its records in Singapore, with an asynchronous copy of the data in Sydney.",
+]
+answer = ["A"]
+ref = "week_00_foundations_and_exam_technique/concepts/02_global_infrastructure.md"
+explain = { A = "Correct. Residency is a hard constraint, so it removes every Region outside Australia. Latency and price only choose among what is left, and CloudFront can speed up cacheable content.", B = "Singapore would give lower latency, but the data would then be stored outside Australia, which the regulator does not allow.", C = "Price is the last tie-breaker and can never override a legal residency rule. Caching does not change where the records are stored.", D = "The primary records would still be stored in Singapore, so the rule is broken. A copy in Sydney does not make the data resident only in Australia." }
+
+[[question]]
+id = "w00-q05"
+domain = 3
+task = "3.4"
+services = ["AWS Outposts", "AWS Local Zones", "AWS Wavelength"]
+kind = "single"
+stem = """A manufacturer runs a machine-control application that must respond to factory-floor equipment within a few milliseconds. Company policy says the production data must be processed inside the factory building and must not leave it. The team wants to keep using the same AWS APIs and tooling it already uses in its Region. Which solution meets these requirements?"""
+options = [
+  "Run the application in an AWS Local Zone in the nearest large city.",
+  "Run the application in a Wavelength Zone inside a 5G carrier network.",
+  "Install AWS Outposts in the factory and run the application there.",
+  "Run the application in the nearest Region and place Amazon CloudFront in front of it.",
+]
+answer = ["C"]
+ref = "week_00_foundations_and_exam_technique/concepts/02_global_infrastructure.md"
+explain = { A = "A Local Zone is an AWS-operated site in a city. It is close to that city but it is not inside the factory, so the data would leave the building.", B = "Wavelength places compute in a 5G operator's network for mobile devices. It is not on the factory site.", C = "Correct. Outposts puts AWS-managed hardware in your own building with the same APIs, so processing stays on site with local latency.", D = "CloudFront caches content at edge locations. It cannot run the control application or keep production data inside the building." }
+
+[[question]]
+id = "w00-q06"
+domain = 1
+task = "1.2"
+services = ["Amazon RDS", "EC2"]
+kind = "single"
+stem = """A company runs MySQL on EC2 instances that its small team patches by hand. An audit finding says that operating-system patching of the database hosts takes too much staff time. The company wants the option that removes operating-system patching from its own responsibilities while still using MySQL. Which option does this?"""
+options = [
+  "Keep MySQL on EC2 and automate the patching with AWS Systems Manager Patch Manager.",
+  "Migrate to Amazon RDS for MySQL.",
+  "Keep MySQL on EC2 and build a new hardened AMI every month to replace the instances.",
+  "Keep MySQL on EC2 but move the instances to Dedicated Hosts.",
+]
+answer = ["B"]
+ref = "week_00_foundations_and_exam_technique/concepts/03_shared_responsibility_and_well_architected.md"
+explain = { A = "Patch Manager automates the work, but the guest operating system on EC2 is still the customer's responsibility. The company still owns it.", B = "Correct. With RDS, AWS runs the operating system of the database host and patches it. The company still configures the database, its users and its maintenance window.", C = "A monthly AMI is a good practice, but the company still builds, tests and rolls out the operating-system patches itself.", D = "Dedicated Hosts change who shares the physical server, not who patches the guest operating system. That stays with the customer." }
+
+[[question]]
+id = "w00-q07"
+domain = 1
+task = "1.3"
+services = ["Amazon S3", "AWS IAM"]
+kind = "single"
+stem = """A company stores customer export files in Amazon S3. A new security officer argues that because S3 is a managed service, AWS is responsible for everything about the data that sits in it. Which responsibility stays with the company under the shared responsibility model?"""
+options = [
+  "Protecting the physical data centres that host the storage hardware.",
+  "Patching the operating systems of the hosts that run the S3 service.",
+  "Keeping each object stored across several Availability Zones in the Region.",
+  "Classifying the data and deciding who may access it, through bucket policies and IAM permissions.",
+]
+answer = ["D"]
+ref = "week_00_foundations_and_exam_technique/concepts/03_shared_responsibility_and_well_architected.md"
+explain = { A = "Physical security of AWS facilities belongs to AWS, as part of security of the cloud.", B = "AWS operates and patches the hosts behind a managed service such as S3. Customers cannot even see them.", C = "S3 stores objects across multiple zones as part of the service. AWS does this for you.", D = "Correct. What you put in the service, how it is classified, and who can reach it are the customer's job. This is security in the cloud." }
+
+[[question]]
+id = "w00-q08"
+domain = 1
+task = "1.1"
+services = ["EC2", "AWS IAM", "Amazon DynamoDB"]
+kind = "single"
+stem = """An application on an EC2 instance must read and write items in one Amazon DynamoDB table. A developer proposes creating an IAM user, generating access keys and saving them in a configuration file on the instance. The company wants the MOST secure way to give the instance its permissions. What should the architect recommend?"""
+options = [
+  "Create an IAM role with a least-privilege policy for the table and attach it to the instance through an instance profile.",
+  "Store the access keys in an environment variable that is set from the user data script when the instance launches.",
+  "Store the access keys in an encrypted object in Amazon S3 that the instance downloads at boot.",
+  "Store the access keys in AWS Secrets Manager with automatic rotation turned on, and have the application fetch them at start-up using an IAM user's keys.",
+]
+answer = ["A"]
+ref = "week_00_foundations_and_exam_technique/concepts/05_tools_credentials_and_cost_basics.md"
+explain = { A = "Correct. The instance receives short-lived credentials from the role automatically, so there is no long-lived secret to store, leak or rotate.", B = "The keys are still long-lived, and they are visible in user data and in the process environment.", C = "The instance would need credentials to read the object in the first place, and the keys would still be long-lived.", D = "The application needs another set of long-lived keys just to reach the secret, which moves the problem rather than removing it." }
+
+[[question]]
+id = "w00-q09"
+domain = 1
+task = "1.1"
+services = ["AWS IAM", "IAM Identity Center"]
+kind = "multi"
+choose = 2
+stem = """A start-up has just created a new AWS account and wants to follow best practice so that the account is as secure as possible from day one. Several engineers will need administrative access for their daily work. Which actions should the company take? (Select TWO.)"""
+options = [
+  "Enable multi-factor authentication on the root user and keep the root user for the few tasks that require it.",
+  "Create access keys for the root user and use them in the automation.",
+  "Set up IAM Identity Center and give the engineers an administrator permission set for daily work.",
+  "Store the root password in the team password manager for all engineers to use.",
+  "Create one shared IAM user per team with AdministratorAccess and long-lived access keys.",
+]
+answer = ["A", "C"]
+ref = "week_00_foundations_and_exam_technique/concepts/05_tools_credentials_and_cost_basics.md"
+explain = { A = "Correct. MFA protects the most powerful identity in the account, and day-to-day work should not use it.", B = "Root access keys are a long-lived credential with unlimited power. Best practice is to have none.", C = "Correct. Identity Center gives each person their own sign-in and short-lived credentials, so no permanent keys are needed.", D = "Sharing the root password removes accountability and makes every engineer a way into the most privileged identity.", E = "Shared users with long-lived keys cannot be traced to a person and the keys can leak. Individual access through Identity Center is safer." }
+
+[[question]]
+id = "w00-q10"
+domain = 2
+task = "2.1"
+services = ["AWS SDK", "Amazon API Gateway"]
+kind = "single"
+stem = """A nightly job calls an AWS API thousands of times in a short burst. About one call in twenty fails with a throttling error, and the same call succeeds a moment later. Many copies of the job run at the same time on different hosts. Which approach handles the errors most reliably?"""
+options = [
+  "Retry each failed call immediately in a tight loop until it succeeds, up to a large number of attempts.",
+  "Treat the first throttling error as fatal and stop the job.",
+  "Use the SDK's retry mode so that failed calls are retried with exponential backoff and jitter.",
+  "Add more worker threads to each host and send the calls in parallel.",
+]
+answer = ["C"]
+ref = "week_00_foundations_and_exam_technique/concepts/05_tools_credentials_and_cost_basics.md"
+explain = { A = "Immediate retries add load at the exact moment the service is pushing back. Many hosts retrying together make throttling worse.", B = "Throttling is a transient error that clears quickly, so stopping the job turns a short blip into an outage.", C = "Correct. Waiting longer after each failure eases the load, and the random jitter stops the hosts from retrying at the same instant.", D = "More threads send even more requests at once, which increases throttling." }
+
+[[question]]
+id = "w00-q11"
+domain = 4
+task = "4.4"
+services = ["EC2", "VPC", "Data transfer"]
+kind = "single"
+stem = """A company runs a development environment in one Region in which two EC2-based services exchange about 30 TB of data a month. Brief interruptions are acceptable in this environment, and the team wants the LOWEST data transfer charge. Which placement and addressing meets this requirement?"""
+options = [
+  "Place the services in different Availability Zones and connect them through their private IP addresses.",
+  "Place both services in the same Availability Zone and connect them through their private IP addresses.",
+  "Place both services in the same Availability Zone but connect them through their public IP addresses.",
+  "Place the services in two different Regions and connect them over the AWS network.",
+]
+answer = ["B"]
+ref = "week_00_foundations_and_exam_technique/concepts/02_global_infrastructure.md"
+explain = { A = "Traffic between Availability Zones in the same Region is charged in both directions, which adds up at 30 TB a month.", B = "Correct. Private traffic within one zone has no data transfer charge. The lack of zone redundancy is acceptable because this is a development environment.", C = "Using public IP addresses sends traffic through a path that is charged and also consumes public IPv4 addresses.", D = "Data transfer between Regions is charged, so this is the most expensive of the four choices." }
+
+[[question]]
+id = "w00-q12"
+domain = 4
+task = "4.4"
+services = ["Elastic IP", "Amazon VPC"]
+kind = "single"
+stem = """A company's account holds forty Elastic IP addresses that were allocated for old experiments and are not associated with any resource. Finance has asked the architect to reduce the networking bill without affecting production. Which action should the architect take?"""
+options = [
+  "Keep the addresses allocated in case the experiments restart.",
+  "Purchase a Compute Savings Plan to discount the address charges.",
+  "Associate each idle address with a stopped instance.",
+  "Release the addresses that no experiment needs any more.",
+]
+answer = ["D"]
+ref = "week_00_foundations_and_exam_technique/concepts/05_tools_credentials_and_cost_basics.md"
+explain = { A = "Every public IPv4 address costs 0.005 USD per hour whether it is in use or idle, so keeping forty of them costs money for nothing.", B = "Compute Savings Plans discount compute usage, not public IPv4 addresses. They would not reduce this line.", C = "An address is charged hourly in use or idle, so attaching it to a stopped instance does not remove the charge and keeps useless resources around.", D = "Correct. Public IPv4 addresses are charged 0.005 USD per hour in use or idle, so forty idle ones cost about 144 USD a month. Releasing the unneeded ones removes the charge." }
+
+[[question]]
+id = "w00-q13"
+domain = 4
+task = "4.2"
+services = ["AWS Fargate", "Amazon ECS", "Amazon EventBridge"]
+kind = "single"
+stem = """A small team runs a stateless data-transformation job packaged as a container image. It starts every night and takes about 40 minutes. The team has no spare time to patch, scale or monitor servers, and it values saved staff time above saving compute dollars. Which solution has the LEAST operational overhead?"""
+options = [
+  "Use an EventBridge schedule to run the container as an Amazon ECS task on AWS Fargate.",
+  "Run the job on EC2 Spot Instances in an Auto Scaling group that the team scales up and down on a schedule it maintains.",
+  "Run the container on one EC2 instance that stays on all day, started by a cron entry.",
+  "Rewrite the job as a single AWS Lambda function invoked by an EventBridge schedule.",
+]
+answer = ["A"]
+ref = "week_00_foundations_and_exam_technique/concepts/01_how_the_exam_works.md"
+explain = { A = "Correct. Fargate runs containers with no servers to manage and an EventBridge schedule starts it, so nothing is left to patch or scale.", B = "Spot Instances might be the MOST cost-effective choice, but the team would still manage instances, the group and the interruption handling. That is more overhead, not less.", C = "An always-on instance has to be patched and monitored, and it also costs more because it runs all day for a 40-minute job.", D = "A Lambda invocation is limited to 900 seconds, which is 15 minutes, so a 40-minute job would not finish." }
+
+[[question]]
+id = "w00-q14"
+domain = 3
+task = "3.2"
+services = ["AWS Lambda", "Amazon S3", "EC2"]
+kind = "single"
+stem = """A photo service must create a thumbnail each time an image is uploaded to Amazon S3. Each job takes about three seconds, and the upload rate swings between nothing for hours and thousands per minute. The team wants to run the code with the LEAST operational overhead. Which compute design should the architect choose?"""
+options = [
+  "An Auto Scaling group of EC2 instances running a worker that polls the bucket for new objects.",
+  "A self-managed Kubernetes cluster on EC2 that runs a worker deployment sized for the peak.",
+  "An AWS Lambda function started by an S3 event notification.",
+  "One large EC2 instance running a scheduled script that lists the bucket and processes new objects.",
+]
+answer = ["C"]
+ref = "week_00_foundations_and_exam_technique/concepts/03_shared_responsibility_and_well_architected.md"
+explain = { A = "This scales, but the team still patches the instances, maintains the worker and tunes the group. That is more overhead than a managed option.", B = "Running Kubernetes yourself is the most operational work of the four, and a deployment sized for the peak wastes capacity during idle hours.", C = "Correct. Lambda runs the code only when an upload happens, scales automatically with the rate and leaves no server for the team to manage. A three-second job is far inside the 900-second limit.", D = "One instance is a single point of failure that must be patched, and a scheduled scan does not react to uploads or scale to a burst." }
+
+[[question]]
+id = "w00-q15"
+domain = 2
+task = "2.2"
+services = ["NAT gateway", "Amazon RDS", "Elastic Load Balancing", "Auto Scaling"]
+kind = "multi"
+choose = 2
+stem = """An architect reviews this design. Route 53 sends traffic to an Application Load Balancer that has subnets in two Availability Zones. The web tier is an Auto Scaling group spread over both zones. Private subnets in both zones reach the internet through one NAT gateway placed in the first zone. The database is a single-AZ Amazon RDS instance, and static files come from Amazon S3. The requirement is to survive the loss of any one Availability Zone. Which components are single points of failure? (Select TWO.)"""
+options = [
+  "The Application Load Balancer.",
+  "The single NAT gateway in the first Availability Zone.",
+  "The Auto Scaling group of web servers.",
+  "The single-AZ Amazon RDS instance.",
+  "The Amazon S3 bucket holding the static files.",
+]
+answer = ["B", "D"]
+ref = "week_00_foundations_and_exam_technique/concepts/04_availability_and_failure.md"
+explain = { A = "The load balancer has subnets in two zones, so it keeps working when one zone is lost. It is not a single point of failure.", B = "Correct. A NAT gateway lives in one zone. If that zone fails, the private subnets in the other zone also lose their outbound path.", C = "The group runs instances in two zones and replaces lost ones, so it survives the loss of one zone.", D = "Correct. A single-AZ database sits in one zone. If that zone fails, the database is unavailable until it is restored, so convert it to Multi-AZ.", E = "S3 is a Regional service that stores objects across several zones, so a zone loss does not take it down." }
